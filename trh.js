@@ -1,29 +1,29 @@
 /*
-Copyright (c) 2020, J. Garcia <u0x004a at > 
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the <organization> nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ *  Copyright (c) 2020, J. Garcia <0x4a.dev at gmail.com> 
+ *  All rights reserved.
+ *  
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *      * Redistributions in binary form must reproduce the above copyright
+ *        notice, this list of conditions and the following disclaimer in the
+ *        documentation and/or other materials provided with the distribution.
+ *      * Neither the name of the <organization> nor the
+ *        names of its contributors may be used to endorse or promote products
+ *        derived from this software without specific prior written permission.
+ *  
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ *  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *  DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+ *  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ *  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ *  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 // Main Object Class
 // Defines the main general variables and functions to start the app
@@ -34,8 +34,10 @@ class TasksTrackingHelper {
         this._selectedRecordsTemplate = this.loadSelectedTemplate();
         this._recordsGroupList = this.loadRecordsGroupList();
         this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
+        this.storeSelectedRecordsGroup();
         this._htmlViews = new HTMLViews(this);
     }
+    get recordsGroupList () {return this._recordsGroupList};
     get selectedRecordsTemplate(){
         return this._selectedRecordsTemplate;
     }
@@ -45,33 +47,43 @@ class TasksTrackingHelper {
     }
 
     loadRecordsGroupList(){
-        return this.loadLocalJSON('recordsGroupList');
+        let rgl = this.loadLocalJSON('recordsGroupList') || [];
+        return rgl;
+    }
+    storeRecordsGroupList(){
+        this.localSave('recordsGroupList', this.recordsGroupList);
     }
 
     storeSelectedRecordsGroup(){
-        localSave(this._selectedRecordsGroup.id , this._selectedRecordsGroup);
+        this.localSave("selectedRecordsGroup",this._selectedRecordsGroup.id );
+        this.localSave(this._selectedRecordsGroup.id , this._selectedRecordsGroup);
     }
 
     loadSelectedRecordsGroup(){
         let recordsGroupID = localStorage.getItem("selectedRecordsGroup");
+        recordsGroupID = JSON.parse(recordsGroupID);
         let rg = null;
         if (recordsGroupID != null) {
             let obj = this.loadLocalJSON(recordsGroupID);
-            if (obj === null){
-                rg = new RecordsGroup(this._selectedRecordsTemplate.name)
-                obj = [rg];
-            }  else {
+            if (obj !== null){
                 let records = obj._records.map(
                     r => Object.assign(new TaskRecord("", ""), r)
                 );
-                rg = new RecordsGroup(obj._type, obj._date, records)
+                rg = new RecordsGroup(obj._type, obj._date, records);
+            }  else {
+                rg = this.setupNewRecordsGroup('Default');
             } 
 
         } else {
-            rg = new RecordsGroup(this._selectedRecordsTemplate.name)
-            localStorage.setItem('selectedRecordsGroup', rg.id);
+            rg = this.setupNewRecordsGroup('Default');
 
         }
+        return rg;
+    }
+    setupNewRecordsGroup(type){
+        let rg = new RecordsGroup(type);
+        this.recordsGroupList.push(rg.id);
+        this.storeRecordsGroupList();
         return rg;
     }
 
@@ -174,7 +186,7 @@ class Task {
 // Stores the outcomes and entered fields in a single string.
 class TaskRecord{
     constructor(summary, creationDate) {
-        this.summary = summary;
+        this._summary = summary;
         this.tracked = false;
         if (creationDate == "") {
             var now = new Date()
@@ -183,10 +195,10 @@ class TaskRecord{
         this.recalculateID();
     }
     async recalculateID () {
-        this.id = await hash(summary).then(v => s = v);
+        this.id = await hash(this._summary);
     }
     getInfo() {
-        return  this.summary + "\nDate: " + this.creationDate + "\n";
+        return  this._summary + "\nDate: " + this.creationDate + "\n";
 
     }
 
@@ -252,8 +264,10 @@ class RecordsTemplate {
 class RecordsGroup {
     constructor(type, ...args) {
         this._type = type;
-        this._date = (args.length == 2) ? args[0]:
-         new Date().toISOString().replace("T", " ").substring(0, 19);
+        this._date = 
+        (args.length == 2) ?
+            args[0] :
+            new Date().toISOString().replace("T", " ").substring(0, 19);
         this._id = this.generateID();;
         this._records = (args.length == 2) ? args[1]: [];
     }
@@ -283,7 +297,13 @@ class HTMLViews {
         this.createInputFields();
         this.createTaskViews();
         this.showCurrentGroup();
-        this.updateEventHandlers();
+        document.addEventListener(
+            'DOMContentLoaded',
+            (() => {
+                this.updateEventHandlers();
+            }).bind(this)
+        );
+        
     }
     get logCount () {return this._logCount;}
     set logCount (value) {this._logCount = value;}
@@ -303,6 +323,19 @@ class HTMLViews {
             "click", 
             (() => this.trackCurrent()).bind(this),
             true
+        );
+
+        let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
+        document.getElementById('tasks-info').addEventListener('click',
+            (event => {
+                if (event.target.tagName == 'INPUT') {
+                    if (event.target.id.match(/\d+-\d+/).length > 0) {
+
+                        this.setOutcome(event.target.id);
+                    }
+                }
+
+            }).bind(this)
         );
 
     }
@@ -325,7 +358,7 @@ class HTMLViews {
 
     createTaskViews(){
         let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
-        const infoDiv = document.getElementById("info");
+        const infoDiv = document.getElementById("tasks-info");
         tasks.forEach(
             (task, index) => {
                 let td = task.taskDescription;
@@ -340,11 +373,6 @@ class HTMLViews {
                             <label class='to-unchecked' for="${taskOptionID}">${taskOutcome}</label>`;
                         let oc = document.getElementById('oc-' + index);
                         oc.innerHTML += html;
-                        let to = document.getElementById(taskOptionID);
-                        to.addEventListener(
-                            "change",
-                            (() => this.setOutcome(taskOptionID)).bind(this)
-                        );
                     });
                 
             }
@@ -402,7 +430,7 @@ class HTMLViews {
         console.log("Tracking")
         let hasEmptyFields = false;
         let ids = this._tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
-        let taskRecords = this._tasksTrackingHelper._selectedRecordsGroup.records;
+        let taskRecordsGroup = this._tasksTrackingHelper._selectedRecordsGroup;
 
         for (var index = 0, n = ids.length; index < n; index++) {
             var inField = document.getElementById(ids[index]);
@@ -414,11 +442,11 @@ class HTMLViews {
         }
 
         if (!hasEmptyFields) {
-            var info = getCurrentInfo();
+            var info = this.getCurrentInfo();
             var tr = new TaskRecord(info, "");
-            taskRecords.addRecord(tr);
+            taskRecordsGroup.addRecord(tr);
             this._tasksTrackingHelper.storeSelectedRecordsGroup();
-            tr.recalculateID().then(() => showInLog(tr));
+            tr.recalculateID().then(() => this.showInLog(tr));
             this.clearFields();
         }
     }
@@ -441,14 +469,14 @@ class HTMLViews {
     showCurrentGroup() {
         let taskRecords = this._tasksTrackingHelper._selectedRecordsGroup.records;
         this.logCount = 0;
-        taskRecords.forEach( tr => showInLog(tr));
+        taskRecords.forEach( tr => this.showInLog(tr));
 
     }
 
     clearFields() {
         let ids = this._tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
         ids.forEach(id => document.getElementById(id).value = "");
-        setDefaults();
+        this.setDefaults();
         document.getElementById("comments-text").value = "";
     }
     // Copy current info to clipboard
