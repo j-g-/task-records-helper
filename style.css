@@ -3,27 +3,32 @@ body {
     font-family: 'Maven Pro', sans-serif;
     margin: 0px;
     padding: 0px;
-    display: grid;
-    grid-template-rows: 3em auto;
-    height: 100%;
-    min-height: min-content;
+    border: none;
 }
 
-.header {
-    padding-top: 1em;
-    width: 100%;
-    text-align: center;
-    font-size: 1em;
-    background: rgb(43, 128, 0);
-    color: white;
-}
 
 div#content {
     display: grid;
     grid-template-columns: 24em auto;
+    grid-template-rows: 64px auto;
     overflow: hidden;
+    height: 100vh;
 }
 
+#main-controls , #stats-header{
+    display: flex;
+    padding-left: 0.4em;
+    text-align: left;
+    align-items: center;
+    flex-direction: row;
+    background: rgb(43, 128, 0);
+    color: white;
+
+}
+#stats-header{
+    font-size: 1.5em;
+
+}
 
 #entry {
     display: flex;
@@ -192,4 +197,24 @@ label.small-label{
     padding:0.3em;
     border-radius: 0.2em;
     margin-left: 4px;
+}
+
+/* Settings */
+
+#settings-container{
+    display: flex;
+    flex-direction: column;
+}
+#settings-controls{
+    height: 48px;
+    display: flex;
+    flex-direction: row;
+}
+#template-text{
+    resize: none;
+    flex-grow: 2;
+}
+
+#settings-controls > select {
+    flex-grow: 2;
 }

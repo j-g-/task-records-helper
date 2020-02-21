@@ -227,14 +227,17 @@ class RecordsTemplate {
         this._lines = this._templateText.split('\n');
         this._name = this.generateNameFromTemplate();
         this._inputFieldNames = this.generateInputFields();
-        this.updateInputIDs();
         this._inputFieldIDs = [];
+        this.updateInputIDs();
         this._tasks = this.generateTasks();
 
     }
 
     async updateInputIDs(){
-        this._inputFieldIDs = this._inputFieldNames.map(n => hash(n));
+        this._inputFieldIDs = [];
+        for (let index = 0, length = this._inputFieldNames.length; index < length; index++) {
+            this._inputFieldIDs.push(await hash(this._inputFieldNames[index]))
+        }
     }
 
     generateNameFromTemplate(){
@@ -294,6 +297,7 @@ class HTMLViews {
     constructor(tasksTrackingHelper){
         this._tasksTrackingHelper = tasksTrackingHelper
         this._logCount = 0;
+        this._displayingSettings = false;
         this.createInputFields();
         this.createTaskViews();
         this.showCurrentGroup();
@@ -325,12 +329,14 @@ class HTMLViews {
             true
         );
 
+        // Toggle Settings button
+        document.getElementById("btn-settings").addEventListener( "click", (() => this.toggleSettingsView()).bind(this));
+
         let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
         document.getElementById('tasks-info').addEventListener('click',
             (event => {
                 if (event.target.tagName == 'INPUT') {
                     if (event.target.id.match(/\d+-\d+/).length > 0) {
-
                         this.setOutcome(event.target.id);
                     }
                 }
@@ -378,6 +384,27 @@ class HTMLViews {
             }
         );
         this.setDefaults();
+    }
+
+    toggleSettingsView(){
+        this._displayingSettings = (this._displayingSettings) ? false: true; //toggle
+        let settingsContainer = document.getElementById("settings-container");
+        if (this._displayingSettings){
+            let templateText = this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
+            settingsContainer.style.height = "200px";
+            settingsContainer.innerHTML = `
+                <textarea name="" id="template-text" ></textarea>
+                <div id="settings-controls">
+                    <select name="templates-select" id="templates-select"></select>
+                    <button class="settings-btn" id="template-new">New</button>
+                    <button class="settings-btn" id="template-save">Save</button>
+                </div>
+            `
+            this.checkForElement('template-text').then(tt => tt.value = templateText);
+        } else {
+            settingsContainer.style.height = "0px";
+            settingsContainer.innerHTML = "";
+        }
     }
 
     setOutcome(toid) {
@@ -489,6 +516,16 @@ class HTMLViews {
             console.log("Text not copied")
         });
 
+    }
+    async checkForElement(id){
+        let el =  document.getElementById(id);
+        while (el === null ){
+                await Promise.resolve( r => requestAnimationFrame(r));
+                Promise.resolve("Not Found " +id ).then( m => console.log(m));
+                el = document.getElementById(id);
+        }
+        Promise.resolve("Found " + id).then(m => console.log(m));
+        return el;
     }
 
 }
