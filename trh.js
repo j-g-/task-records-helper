@@ -43,7 +43,19 @@ class TasksTrackingHelper {
     }
     set selectedRecordsTemplate(name){
         localStorage.setItem('selectedRecordsTemplate', name);
-        this._selectedRecordsTemplate = loadSelectedTemplate();
+        this._selectedRecordsTemplate = this.loadSelectedTemplate();
+    }
+    generateDefaultTemplateText() {
+        let defaultTemplate = "";
+        defaultTemplate +=
+            (this._recordsTemplates.get("Default")) ?
+                "Default" + new Date().toISOString() + "\n":
+                "Default\n";
+        defaultTemplate +=
+            "Fields:ID\n" +
+            "Tasks:\n" +
+            "Completed?::Yes/No";
+        return defaultTemplate;
     }
 
     loadRecordsGroupList(){
@@ -101,16 +113,31 @@ class TasksTrackingHelper {
         return rt;
     }
 
+    changeCurrentRecordsTemplate(text) {
+        let t = new RecordsTemplate(text);
+        let currentName = this.selectedRecordsTemplate.name;
+        if (t.name != currentName) {
+            this._recordsTemplates.delete(currentName)
+        }
+        this._recordsTemplates.set(t.name, t);
+        this.selectedRecordsTemplate = t.name;
+        this.storeTemplates();
+        this.loadTemplates();
+
+    }
+
 
     storeTemplates(){
-        this.localSave("storedTemplates",this._recordsTemplates);
+        localStorage.setItem('selectedRecordsTemplate', this.selectedRecordsTemplate.name);
         let arr = Array.from(this._recordsTemplates).map( rt => rt[1].templateText);
-        console.log(arr)
         localStorage.setItem("storedTemplates", JSON.stringify(arr));
     }
 
-    localSave(key, obj) {
-        localStorage.setItem(key, JSON.stringify(obj));
+    addTemplate(text){
+        const rt = new RecordsTemplate(text);
+        this._recordsTemplates.set(rt.name,rt);
+        this.selectedRecordsTemplate = rt.name;
+        this.storeTemplates();
     }
 
     loadTemplates(){
@@ -128,26 +155,22 @@ class TasksTrackingHelper {
         }
         if (this._recordsTemplates.size == 0 ){
             console.log("No stored templates, generatign default")
-            let defaultTemplate =  
-                "Default\n" +
-                "Fields:ID\n" +
-                "Tasks:\n" +
-                "Completed?::Yes/No";
+            let defaultTemplate =  this.generateDefaultTemplateText();
             let rt = new RecordsTemplate(defaultTemplate)
             this._recordsTemplates.set(rt.name, rt);
+            this._selectedRecordsTemplate = rt;
             this.storeTemplates();
         }
         return this._recordsTemplates;
     }
 
+    localSave(key, obj) {
+        localStorage.setItem(key, JSON.stringify(obj));
+    }
+
     loadLocalJSON (key) {
         let jsonString =  localStorage.getItem(key);
         return  ( jsonString != null) ?  JSON.parse(jsonString) : null;
-    }
-    addTemplate(text){
-        const rt = new RecordsTemplate(text);
-        this._recordsTemplates.set(rt.name,rt);
-        this.storeTemplates();
     }
 
 }
@@ -228,7 +251,6 @@ class RecordsTemplate {
         this._name = this.generateNameFromTemplate();
         this._inputFieldNames = this.generateInputFields();
         this._inputFieldIDs = [];
-        this.updateInputIDs();
         this._tasks = this.generateTasks();
 
     }
@@ -298,8 +320,7 @@ class HTMLViews {
         this._tasksTrackingHelper = tasksTrackingHelper
         this._logCount = 0;
         this._displayingSettings = false;
-        this.createInputFields();
-        this.createTaskViews();
+        this.loadTemplateView();
         this.showCurrentGroup();
         document.addEventListener(
             'DOMContentLoaded',
@@ -318,11 +339,12 @@ class HTMLViews {
     updateEventHandlers(){
         let btnCopyCurrent = document.getElementById("btn-copy-current");
         let btnCompleted = document.getElementById("btn-completed");
-        btnCopyCurrent.addEventListener(
-            "click", 
-            (() => this.copyInfo()).bind(this),
-            true
-        );
+        this.simpleClick(btnCopyCurrent,this.copyInfo);
+       //btnCopyCurrent.addEventListener(
+       //    "click", 
+       //    (() => this.copyInfo()).bind(this),
+       //    true
+       //);
         btnCompleted.addEventListener(
             "click", 
             (() => this.trackCurrent()).bind(this),
@@ -343,7 +365,68 @@ class HTMLViews {
 
             }).bind(this)
         );
+        
+        let settingsContainer = document.getElementById("settings-container");
+        settingsContainer.addEventListener(
+            "click",
+            ((event) => this.handleSettingsActions(event)).bind(this)
+        );
+        settingsContainer.addEventListener(
+            "click",
+            ((event) => this.handleSettingsActions(event)).bind(this)
+        );
 
+    }
+    simpleClick(element, fn){
+        element.addEventListener(
+            "click",
+            (() => fn()).bind(this)
+        );
+    }
+
+    handleSettingsActions (event) {
+        let tid = event.target.id;
+        switch (tid) {
+            case "template-save":
+                this.saveTemplateChanges();
+                break;
+            case "template-new":
+                this.createNewRecorsTemplate();
+                break;
+            default:
+                break;
+        }
+
+    }
+
+    createNewRecorsTemplate(){
+        this._tasksTrackingHelper.addTemplate(
+            this.tasksTrackingHelper.generateDefaultTemplateText()
+        );
+        document.getElementById("template-text").innerHTML =
+            this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
+        
+        this.loadTemplatesSelect();
+        document.getElementById("templates-select").value =
+            this._tasksTrackingHelper.selectedRecordsTemplate.name;
+        this.loadTemplateView();
+    }
+    loadTemplateView(){
+        this.createInputFields();
+        this.createTaskViews();
+
+    }
+    saveTemplateChanges() {
+        let tt = document.getElementById("template-text").value;
+        this._tasksTrackingHelper.changeCurrentRecordsTemplate(tt);
+        this.loadTemplatesSelect();
+        this.loadTemplateView();
+    }
+    updateTemplatesSelect(templateName){
+        this._tasksTrackingHelper.selectedRecordsTemplate = templateName;
+        document.getElementById("template-text").value =
+            this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
+        this.loadTemplateView();
     }
 
     createInputFields() {
@@ -365,6 +448,7 @@ class HTMLViews {
     createTaskViews(){
         let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
         const infoDiv = document.getElementById("tasks-info");
+        infoDiv.innerHTML = "";
         tasks.forEach(
             (task, index) => {
                 let td = task.taskDescription;
@@ -393,17 +477,55 @@ class HTMLViews {
             let templateText = this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
             settingsContainer.style.height = "200px";
             settingsContainer.innerHTML = `
-                <textarea name="" id="template-text" ></textarea>
-                <div id="settings-controls">
-                    <select name="templates-select" id="templates-select"></select>
-                    <button class="settings-btn" id="template-new">New</button>
-                    <button class="settings-btn" id="template-save">Save</button>
-                </div>
-            `
+                    <textarea name="" id="template-text" ></textarea>
+                    <div id="settings-controls">
+                     <select name="templates-select" id="templates-select"></select>
+                     <button class="settings-btn" id="template-new">New</button>
+                     <button class="settings-btn" id="template-save">Save</button>
+                    </div>
+                    `;
+            this.loadTemplatesSelect();
             this.checkForElement('template-text').then(tt => tt.value = templateText);
+            let selecthandler = (event) => {
+                console.log("fired!")
+                console.log(event.target.value);
+                this.updateTemplatesSelect(event.target.value);
+            }
+            selecthandler.bind(this);
+            this.checkForElement('templates-select').then( templatesSelect =>
+                templatesSelect.onchange = selecthandler
+
+            );
         } else {
             settingsContainer.style.height = "0px";
             settingsContainer.innerHTML = "";
+        }
+    }
+
+    loadTemplatesSelect(){
+        this.checkForElement("templates-select").then(
+            templatesSelect => {
+                let rtOptions = Array.from(this._tasksTrackingHelper._recordsTemplates)
+                    .map(rt => {
+                        let tn = rt[1].name;
+                        return `<option value="${tn}">${tn}</option>`;
+                    });
+                templatesSelect.innerHTML = rtOptions.join("");
+                templatesSelect.value = 
+                    this._tasksTrackingHelper.selectedRecordsTemplate.name;
+
+            }
+        );
+    }
+
+    async animateGrow(element, size, duration){
+        let d = (duration/1000) * 60;
+        for (let index = 0; index < d; index++) {
+            requestAnimationFrame(() => {
+                let h =  size / d * index ;
+                element.style.height =  h + "px";
+            });
+            await new Promise(resolve => requestAnimationFrame(resolve));
         }
     }
 
@@ -517,14 +639,12 @@ class HTMLViews {
         });
 
     }
-    async checkForElement(id){
-        let el =  document.getElementById(id);
-        while (el === null ){
-                await Promise.resolve( r => requestAnimationFrame(r));
-                Promise.resolve("Not Found " +id ).then( m => console.log(m));
-                el = document.getElementById(id);
-        }
-        Promise.resolve("Found " + id).then(m => console.log(m));
+    async checkForElement(id) {
+        let el = null;
+        do {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            el = document.getElementById(id);
+        } while (el === null);
         return el;
     }
 
