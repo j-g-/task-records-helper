@@ -1,29 +1,29 @@
-/*
- *  Copyright (c) 2020, J. Garcia <0x4a.dev at gmail.com> 
- *  All rights reserved.
- *  
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are met:
- *      * Redistributions of source code must retain the above copyright
- *        notice, this list of conditions and the following disclaimer.
- *      * Redistributions in binary form must reproduce the above copyright
- *        notice, this list of conditions and the following disclaimer in the
- *        documentation and/or other materials provided with the distribution.
- *      * Neither the name of the <organization> nor the
- *        names of its contributors may be used to endorse or promote products
- *        derived from this software without specific prior written permission.
- *  
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *  DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
- *  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+//
+// Copyright (c) 2020, J. Garcia <0x4a.dev at gmail.com> 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimer in the
+//       documentation and/or other materials provided with the distribution.
+//     * Neither the name of the <organization> nor the
+//       names of its contributors may be used to endorse or promote products
+//       derived from this software without specific prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
 
 // Main Object Class
 // Defines the main general variables and functions to start the app
@@ -38,18 +38,11 @@ class TasksTrackingHelper {
         this._htmlViews = new HTMLViews(this);
     }
     get recordsGroupList () {return this._recordsGroupList};
-    get selectedRecordsTemplate(){
-        return this._selectedRecordsTemplate;
-    }
-    set selectedRecordsTemplate(name){
-        localStorage.setItem('selectedRecordsTemplate', name);
-        this._selectedRecordsTemplate = this.loadSelectedTemplate();
-    }
     generateDefaultTemplateText() {
         let defaultTemplate = "";
         defaultTemplate +=
             (this._recordsTemplates.get("Default")) ?
-                "Default" + new Date().toISOString() + "\n":
+                "Default " + new Date().toISOString() + "\n":
                 "Default\n";
         defaultTemplate +=
             "Fields:ID\n" +
@@ -99,17 +92,21 @@ class TasksTrackingHelper {
         return rg;
     }
 
+    get selectedRecordsTemplate(){
+        return this._selectedRecordsTemplate;
+    }
+    set selectedRecordsTemplate(name){
+        localStorage.setItem('selectedRecordsTemplate', name);
+        this._selectedRecordsTemplate = this.loadSelectedTemplate();
+    }
     loadSelectedTemplate(){
         let name = localStorage.getItem("selectedRecordsTemplate");
-        if (!name) name = "Default"
-        let rt  = this._recordsTemplates.get(name);
+        let rt  = name ? this._recordsTemplates.get(name): null;
         if (rt === null) {
             name = "Default";
             rt = this._recordsTemplates.get("Default");
+            localStorage.setItem('selectedRecordsTemplate', name);
         }
-        console.log("Selected template is:")
-        console.log(rt);
-        localStorage.setItem('selectedRecordsTemplate', name);
         return rt;
     }
 
@@ -139,6 +136,17 @@ class TasksTrackingHelper {
         this.selectedRecordsTemplate = rt.name;
         this.storeTemplates();
     }
+    deleteSelectedRecordsTemplate(){
+        let stName = this.selectedRecordsTemplate.name
+        this._recordsTemplates.delete(stName)
+        this.storeTemplates();
+        let newSelection = this._recordsTemplates.keys().next()
+        if (newSelection.value) {
+            this.selectedRecordsTemplate = newSelection.value;
+        } else {
+            this.loadTemplates();
+        }
+    }
 
     loadTemplates(){
         let jsonTemplates = this.loadLocalJSON('storedTemplates');
@@ -146,15 +154,13 @@ class TasksTrackingHelper {
         if (jsonTemplates != null) {
             jsonTemplates.forEach(
                 templateText => {
-                    console.log('Loading Template:');
-                    console.log(templateText);
                     let rt = new RecordsTemplate(templateText);
                     this._recordsTemplates.set(rt.name, rt);
                 }
             );
         }
         if (this._recordsTemplates.size == 0 ){
-            console.log("No stored templates, generatign default")
+            console.log("No stored templates, generating default")
             let defaultTemplate =  this.generateDefaultTemplateText();
             let rt = new RecordsTemplate(defaultTemplate)
             this._recordsTemplates.set(rt.name, rt);
@@ -217,6 +223,8 @@ class TaskRecord{
         }
         this.recalculateID();
     }
+    get tracked(){ return this._tracked;}
+    set tracked(val){this._tracked = val}
     async recalculateID () {
         this.id = await hash(this._summary);
     }
@@ -247,7 +255,8 @@ class RecordsTemplate {
     }
 
     updateTemplate() {
-        this._lines = this._templateText.split('\n');
+        let rawLines = this._templateText.split('\n');
+        this._lines = rawLines.filter(l => l != "");
         this._name = this.generateNameFromTemplate();
         this._inputFieldNames = this.generateInputFields();
         this._inputFieldIDs = [];
@@ -309,7 +318,18 @@ class RecordsGroup {
         this._records.push(r);
     }
     deleteRecord(id) {
-        this._records.filter(r => r.id !== id);
+        this._records =
+            this._records.filter(r => r.id !== id);
+        console.log("deleted: " +id);
+        console.log(this._records);
+    }
+    setTrackedStatus(id, status) {
+        let r = this._records.find(r => r.id === id);
+        r.tracked = status;
+    }
+    getTrackedStatus(id) {
+        let r = this._records.find(r => r.id === id);
+        return r.tracked ;
     }
 }
 
@@ -325,6 +345,7 @@ class HTMLViews {
         document.addEventListener(
             'DOMContentLoaded',
             (() => {
+                console.log("DOM was loaded doing some stuff")
                 this.updateEventHandlers();
             }).bind(this)
         );
@@ -339,20 +360,23 @@ class HTMLViews {
     updateEventHandlers(){
         let btnCopyCurrent = document.getElementById("btn-copy-current");
         let btnCompleted = document.getElementById("btn-completed");
+        let btnSettings = document.getElementById("btn-settings");
         this.simpleClick(btnCopyCurrent,this.copyInfo);
-       //btnCopyCurrent.addEventListener(
-       //    "click", 
-       //    (() => this.copyInfo()).bind(this),
-       //    true
-       //);
-        btnCompleted.addEventListener(
-            "click", 
-            (() => this.trackCurrent()).bind(this),
-            true
-        );
+        this.simpleClick(btnCompleted,this.trackCurrent);
+        this.simpleClick(btnSettings,this.toggleSettingsView);
+        //btnCopyCurrent.addEventListener(
+        //    "click", 
+        //    (() => this.copyInfo()).bind(this),
+        //    true
+        //);
+        //btnCompleted.addEventListener(
+        //    "click", 
+        //    (() => this.trackCurrent()).bind(this),
+        //    true
+        //);
 
         // Toggle Settings button
-        document.getElementById("btn-settings").addEventListener( "click", (() => this.toggleSettingsView()).bind(this));
+        //document.getElementById("btn-settings").addEventListener( "click", (() => this.toggleSettingsView()).bind(this));
 
         let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
         document.getElementById('tasks-info').addEventListener('click',
@@ -366,22 +390,78 @@ class HTMLViews {
             }).bind(this)
         );
         
+        // Settings Container handlers
         let settingsContainer = document.getElementById("settings-container");
         settingsContainer.addEventListener(
             "click",
             ((event) => this.handleSettingsActions(event)).bind(this)
         );
-        settingsContainer.addEventListener(
-            "click",
-            ((event) => this.handleSettingsActions(event)).bind(this)
+
+
+        // log container handlers
+        document.getElementById("log").addEventListener("click",
+            ((event) => this.handleLogActions(event)).bind(this)
         );
 
     }
     simpleClick(element, fn){
         element.addEventListener(
             "click",
-            (() => fn()).bind(this)
+            (() => { 
+                let o = this;
+                o[fn.name]();
+            }).bind(this)
         );
+    }
+
+    handleLogActions(event){
+        let elementID = event.target.id ;
+        let arr = elementID.split("-");
+        console.log(arr);
+        let fnList = new Map();
+
+        fnList.set("dr",this.deleteRecordAndView);
+        fnList.set("chk",this.markRecordTrackedStatus);
+        let f = fnList.get(arr[0]);
+        if (f){
+            let h = this;
+            h[f.name](arr[1]);
+        }
+    }
+    markRecordTrackedStatus(id){
+        let status = document.getElementById("chk-"+id).checked;
+        this._tasksTrackingHelper._selectedRecordsGroup.setTrackedStatus(id, status);
+        this._tasksTrackingHelper.storeSelectedRecordsGroup();
+    }
+
+    deleteRecordAndView(id){
+        console.log("dr: "+id)
+        let text = document.getElementById(id).innerText;
+        let ok = confirm(
+            "Are you sure you want to delete:\n" + 
+            "================================\n" + text
+            );
+        if(ok){
+            this._tasksTrackingHelper._selectedRecordsGroup.deleteRecord(id);
+            this._tasksTrackingHelper.storeSelectedRecordsGroup();
+            //this.showCurrentGroup();
+            let lc = document.getElementById("log");
+            let rc = document.getElementById("rc-"+id);
+            lc.removeChild(rc);
+            let recordsCount = 
+                this._tasksTrackingHelper.
+                    _selectedRecordsGroup.records.length; 
+            let cLabels = document.querySelectorAll(".record-container > div.record-header > h3");
+            if (cLabels){
+                let l = cLabels.length;
+                for (let index = 0 ; index < l; index++) {
+                    cLabels[index].innerText = l - index;
+                }
+                this._logCount = l ;
+            }
+            
+
+        }
     }
 
     handleSettingsActions (event) {
@@ -391,7 +471,10 @@ class HTMLViews {
                 this.saveTemplateChanges();
                 break;
             case "template-new":
-                this.createNewRecorsTemplate();
+                this.createNewRecordsTemplate();
+                break;
+            case "template-delete":
+                this.deleteSelectedRecordsTemplateAndView();
                 break;
             default:
                 break;
@@ -399,29 +482,45 @@ class HTMLViews {
 
     }
 
-    createNewRecorsTemplate(){
+    createNewRecordsTemplate(){
         this._tasksTrackingHelper.addTemplate(
             this.tasksTrackingHelper.generateDefaultTemplateText()
         );
-        document.getElementById("template-text").innerHTML =
+        this.refreshSettingsViews();
+        this.loadTemplateView();
+    }
+    refreshSettingsViews(){
+        document.getElementById("template-text").value =
             this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
         
         this.loadTemplatesSelect();
         document.getElementById("templates-select").value =
             this._tasksTrackingHelper.selectedRecordsTemplate.name;
-        this.loadTemplateView();
+
+    }
+    deleteSelectedRecordsTemplateAndView(){
+        let tn = this._tasksTrackingHelper.selectedRecordsTemplate.name;
+        let ok  = confirm(`Are you sure you want to delete the template ${tn}?`)
+        if (ok){
+            this._tasksTrackingHelper.deleteSelectedRecordsTemplate();
+            this.loadTemplateView();
+            this.refreshSettingsViews();
+        }
     }
     loadTemplateView(){
         this.createInputFields();
         this.createTaskViews();
 
     }
+    
     saveTemplateChanges() {
         let tt = document.getElementById("template-text").value;
         this._tasksTrackingHelper.changeCurrentRecordsTemplate(tt);
         this.loadTemplatesSelect();
         this.loadTemplateView();
     }
+
+
     updateTemplatesSelect(templateName){
         this._tasksTrackingHelper.selectedRecordsTemplate = templateName;
         document.getElementById("template-text").value =
@@ -482,6 +581,7 @@ class HTMLViews {
                      <select name="templates-select" id="templates-select"></select>
                      <button class="settings-btn" id="template-new">New</button>
                      <button class="settings-btn" id="template-save">Save</button>
+                     <button class="settings-btn" id="template-delete">Delete</button>
                     </div>
                     `;
             this.loadTemplatesSelect();
@@ -599,27 +699,34 @@ class HTMLViews {
             this.clearFields();
         }
     }
+
     showInLog(taskRecord) {
-        this.logCount += 1;
         let logDiv = document.getElementById("log");
+        this._logCount += 1;
         let id = taskRecord.id;
         logDiv.innerHTML =
-            `<div class='record-container'>
+            `<div class='record-container' id='rc-${id}'>
                     <button class='copy' onclick=copyToClipboard('${id}')>&#x2398</button>
                     <div class='record-header'> 
                         <h3 class='count'>${this.logCount}</h3> 
                         <label for='tbf-${id}' class='small-label'>Tracked</label> 
-                        <input id='tbf-${id}' type=checkbox>
-                        <button class='delete-btn'>&#x1F5D1;</button>
+                        <input id='chk-${id}' type=checkbox>
+                        <button class='delete-btn' id='dr-${id}'>&#x1F5D1;</button>
                     </div>
                     <div id='${id}' class=\"record\">${taskRecord.getInfo()}</div> 
         </div>` + logDiv.innerHTML;
+        let status = taskRecord.tracked;
+        this.checkForElement('chk-'+id).then(el => el.checked = status);
     }
-    showCurrentGroup() {
-        let taskRecords = this._tasksTrackingHelper._selectedRecordsGroup.records;
-        this.logCount = 0;
-        taskRecords.forEach( tr => this.showInLog(tr));
 
+    showCurrentGroup() {
+        let logDiv = document.getElementById("log").innerHTML = "";
+        let taskRecords = this._tasksTrackingHelper._selectedRecordsGroup.records;
+        this._logCount = 0;
+        for (let index = 0; index < taskRecords.length; index++) {
+            const tr = taskRecords[index];
+            tr.recalculateID().then( (() =>  this.showInLog(tr)).bind(this));
+        }
     }
 
     clearFields() {
