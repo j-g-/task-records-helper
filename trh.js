@@ -9,14 +9,14 @@
 //     * Redistributions in binary form must reproduce the above copyright
 //       notice, this list of conditions and the following disclaimer in the
 //       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the <organization> nor the
+//     * Neither the name of the copyright holder nor the
 //       names of its contributors may be used to endorse or promote products
 //       derived from this software without specific prior written permission.
 // 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 // ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 // WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
 // DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 // (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
 // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
@@ -74,22 +74,36 @@ class TasksTrackingHelper {
                 let records = obj._records.map(
                     r => Object.assign(new TaskRecord("", ""), r)
                 );
-                rg = new RecordsGroup(obj._type, obj._date, records);
+                rg = new RecordsGroup(obj._name, obj._type, obj._date, records);
             }  else {
-                rg = this.setupNewRecordsGroup('Default');
+                rg = this.setupNewRecordsGroup('Default Group','Default');
             } 
 
         } else {
-            rg = this.setupNewRecordsGroup('Default');
+            rg = this.setupNewRecordsGroup('Default Group', 'Default');
 
         }
         return rg;
     }
-    setupNewRecordsGroup(type){
-        let rg = new RecordsGroup(type);
+    setupNewRecordsGroup(name, type){
+        let rg = new RecordsGroup(name,type);
         this.recordsGroupList.push(rg.id);
         this.storeRecordsGroupList();
         return rg;
+    }
+
+    renameCurrentRecordsGroup(newName){
+        let repeated = this.recordsGroupList.includes(newName);
+        if (!repeated) {
+            let oldID = this._selectedRecordsGroup.id;
+            this._selectedRecordsGroup.name = newName;
+            this.recordsGroupList = this.recordsGroupList.filter( id => id != oldID);
+            this.recordsGroupList.push(this.recordsGroupList);
+            this.recordsGroupList = this.recordsGroupList.sort();
+            this.storeRecordsGroupList();
+            this.storeSelectedRecordsGroup();
+            localStorage.removeItem(oldID);
+        }
     }
 
     get selectedRecordsTemplate(){
@@ -229,10 +243,56 @@ class TaskRecord{
         this.id = await hash(this._summary);
     }
     getInfo() {
-        return  this._summary + "\nDate: " + this.creationDate + "\n";
+        return  this._summary + "Date: " + this.creationDate  ;
 
     }
 
+}
+
+// RecordsGroup
+// Holds a records group with date and type
+class RecordsGroup {
+    constructor(name,type, ...args) {
+        this._type = type;
+        this._name = name;
+        this._date = 
+            (args.length == 2) ?
+                args[0] :
+                new Date().toISOString().replace("T", " ").substring(0, 19);
+        this._id = this.generateID();
+        this._records = (args.length == 2) ? args[1]: [];
+    }
+
+    get id (){return this._id;}
+    get date (){return this._date;}
+    get type (){return this._type;}
+    get records (){return this._records;}
+    get name (){return this._name;}
+    set name (name){
+        this._name = name;
+        this._id = this.generateID();
+    }
+    
+    generateID () { 
+        return this._name; 
+    }
+    addRecord(r) {
+        this._records.push(r);
+    }
+    deleteRecord(id) {
+        this._records =
+            this._records.filter(r => r.id !== id);
+        console.log("deleted: " +id);
+        console.log(this._records);
+    }
+    setTrackedStatus(id, status) {
+        let r = this._records.find(r => r.id === id);
+        r.tracked = status;
+    }
+    getTrackedStatus(id) {
+        let r = this._records.find(r => r.id === id);
+        return r.tracked ;
+    }
 }
 
 // RecordsTemplate
@@ -293,45 +353,6 @@ class RecordsTemplate {
 
 }
 
-// RecordsGroup
-// Holds a records group with date and type
-class RecordsGroup {
-    constructor(type, ...args) {
-        this._type = type;
-        this._date = 
-        (args.length == 2) ?
-            args[0] :
-            new Date().toISOString().replace("T", " ").substring(0, 19);
-        this._id = this.generateID();;
-        this._records = (args.length == 2) ? args[1]: [];
-    }
-
-    get id (){return this._id;}
-    get date (){return this._date;}
-    get type (){return this._type;}
-    get records (){return this._records;}
-    
-    generateID () { 
-        return this._type + ":" + this._date; 
-    }
-    addRecord(r) {
-        this._records.push(r);
-    }
-    deleteRecord(id) {
-        this._records =
-            this._records.filter(r => r.id !== id);
-        console.log("deleted: " +id);
-        console.log(this._records);
-    }
-    setTrackedStatus(id, status) {
-        let r = this._records.find(r => r.id === id);
-        r.tracked = status;
-    }
-    getTrackedStatus(id) {
-        let r = this._records.find(r => r.id === id);
-        return r.tracked ;
-    }
-}
 
 // HTMLView
 // displays and retrieves info to and from the DOM 
@@ -342,6 +363,7 @@ class HTMLViews {
         this._displayingSettings = false;
         this.loadTemplateView();
         this.showCurrentGroup();
+        this. updateRecordsGroupView();
         document.addEventListener(
             'DOMContentLoaded',
             (() => {
@@ -528,6 +550,29 @@ class HTMLViews {
         this.loadTemplateView();
     }
 
+    // Records Group Section
+    updateRecordsGroupView(){
+        this.updateRecordsGroupList();
+        this.updateSelectedGroupInfo();
+
+    }
+    updateRecordsGroupList(){
+        let rgl = document.getElementById("rg-list");
+        let options = this._tasksTrackingHelper._recordsGroupList
+            .map( n => `<option value="${n}">${n}</option>` );
+        let html = options.join("")
+        rgl.innerHTML = "";
+        rgl.innerHTML = html;
+    }
+    updateSelectedGroupInfo(){
+        let rgn = document.getElementById("rg-selected-name");
+        let n = this._tasksTrackingHelper._selectedRecordsGroup.name;
+        rgn.innerText = n; 
+        let rgl = document.getElementById("rg-list");
+        rgl.value = n;
+    }
+
+
     createInputFields() {
         this.tasksTrackingHelper.selectedRecordsTemplate.updateInputIDs().then( () => {
             let inputFieldNames = this.tasksTrackingHelper.selectedRecordsTemplate.inputFieldNames;
@@ -709,7 +754,7 @@ class HTMLViews {
                     <button class='copy' onclick=copyToClipboard('${id}')>&#x2398</button>
                     <div class='record-header'> 
                         <h3 class='count'>${this.logCount}</h3> 
-                        <label for='tbf-${id}' class='small-label'>Tracked</label> 
+                        <label for='chk-${id}' class='small-label'>Tracked</label> 
                         <input id='chk-${id}' type=checkbox>
                         <button class='delete-btn' id='dr-${id}'>&#x1F5D1;</button>
                     </div>

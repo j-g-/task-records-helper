@@ -5,7 +5,10 @@ body {
     padding: 0px;
     border: none;
 }
-
+option{
+    height: 24px;
+    font-size: small;
+}
 
 div#content {
     display: grid;
@@ -28,6 +31,7 @@ div#content {
 }
 #stats-header{
     font-size: 1.5em;
+    font-weight: bolder;
 
 }
 
@@ -67,6 +71,8 @@ div#content {
 #in-fields > input {
     padding-left: 0.5em;
     height:32px;
+    border-radius: 4px;
+    border: 1px solid darkgray;
 }
 input.radio-option{display:none; width:0px; visibility: hidden;} 
 input {
@@ -141,7 +147,10 @@ button.copy:focus {
 #comments-text {
     resize: none;
     flex-grow: 2;
-
+    padding: 0.5em;
+    font-size: small;
+    border: 1px solid darkgray;
+    border-radius: 4px;
 }
 #comments{
     margin: 4px;
@@ -191,7 +200,7 @@ label.small-label{
     font-size: small;
     justify-content: flex-end;
     align-content: flex-end;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.25em;
     padding-bottom: 0.25em;
     border-bottom: 1px solid green;
 }
@@ -199,14 +208,64 @@ label.small-label{
     background: lightgray;
     color:  gray;
     padding:0.15em;
+    border: 1px solid darkgray;
     border-radius: 0.2em;
     margin-left: 4px;
 }
 .to-checked {
+    border: 1px solid green;
     background: greenyellow;
     padding:0.15em;
     border-radius: 0.2em;
     margin-left: 4px;
+}
+/* Records Group info*/
+
+.rg-info{
+    flex-grow: 2;
+    display: flex;
+    padding: 0px;
+    height: 100%;
+    margin: 4px;
+    flex-direction: column;
+}
+#rg-selected-controls{
+    display: grid;
+    grid-template-columns: auto 32px 32px;
+    grid-template-rows: 32px;
+    flex-grow: 2;
+    gap:4px;
+    margin: 4px;
+    flex-grow: 2;
+    justify-self: flex-start;
+}
+#rg-list{
+    border: 1px solid black;
+    border-radius: 4px;
+    background: lightgreen;
+    height: 24px;
+    font-size: small;
+    margin-bottom: 4px;
+    margin-right: 4px;
+    justify-self: flex-end;
+}
+#rg-selected-name {
+    background: rgb(73, 158, 0);
+    border-radius: 4px;
+    padding: 0.2em;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+
+}
+.btn-rg{
+    border: 1px solid black;
+    background: whitesmoke;
+    border-radius: 4px;
+    font-size: 1.2em;
+}
+.btn-rg:active{
+    background: lightgray;
 }
 
 /* Settings */
@@ -227,6 +286,9 @@ label.small-label{
     font-size: small;
     resize: none;
     flex-grow: 2;
+    border: 1px solid darkgray;
+    border-radius: 4px;
+    padding: 0.4em;
 }
 
 #btn-settings{

@@ -9,9 +9,17 @@
 
 <body>
     <div id="content">
-        <nav id="main-controls">
+        <div id="main-controls">
             <button id="btn-settings">&#x2699;</button>
-        </nav>
+            <div class="rg-info">
+                <div id="rg-selected-controls">
+                    <span id="rg-selected-name"></span>
+                    <button class="btn-rg" id="btn-change-name">&#x1F589</button>
+                    <button class="btn-rg" id="btn-rg-new">&plus;</button>
+                </div>
+                <select name="rg-list" id="rg-list"></select>
+            </div>
+        </div>
         <div id="stats-header"> <span id="title-text">Task Tracking helper </span></div>
         <div id="entry">
             <div id="settings-container">
