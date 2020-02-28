@@ -34,7 +34,6 @@ class TasksTrackingHelper {
         this._selectedRecordsTemplate = this.loadSelectedTemplate();
         this._recordsGroupList = this.loadRecordsGroupList();
         this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
-        this.storeSelectedRecordsGroup();
         this._htmlViews = new HTMLViews(this);
     }
     get recordsGroupList () {return this._recordsGroupList};
@@ -83,23 +82,46 @@ class TasksTrackingHelper {
             rg = this.setupNewRecordsGroup('Default Group', 'Default');
 
         }
+        if (this._recordsTemplates.has(rg.type) &&
+            (rg.type != this._selectedRecordsTemplate.name)) {
+                this.selectedRecordsTemplate = rg.type
+        } else if ( !this._recordsTemplates.has(rg.type)) {
+            rg.type = this._selectedRecordsTemplate.name;
+            this.storeSelectedRecordsGroup();
+        }
         return rg;
+    }
+    deleteCurrentRecordsGroup(){
+        let currentID = this._selectedRecordsGroup.id;
+        this._recordsGroupList = this.recordsGroupList.filter( id => id != currentID );
+        this.storeRecordsGroupList();
+        this.localSave("selectedRecordsGroup", "");
+        localStorage.removeItem(currentID);
+        if (this.recordsGroupList.length > 0) {
+            this.localSave("selectedRecordsGroup", this.recordsGroupList[0]);
+        }
+        this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
     }
     setupNewRecordsGroup(name, type){
         let rg = new RecordsGroup(name,type);
-        this.recordsGroupList.push(rg.id);
+        this._recordsGroupList.push(rg.id);
         this.storeRecordsGroupList();
+        this._selectedRecordsGroup = rg;
+        this.storeSelectedRecordsGroup();
         return rg;
     }
-
+    changeSelectedRecordsGroup(id) {
+        this.localSave("selectedRecordsGroup", id);
+        this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
+    }
     renameCurrentRecordsGroup(newName){
         let repeated = this.recordsGroupList.includes(newName);
         if (!repeated) {
             let oldID = this._selectedRecordsGroup.id;
             this._selectedRecordsGroup.name = newName;
-            this.recordsGroupList = this.recordsGroupList.filter( id => id != oldID);
-            this.recordsGroupList.push(this.recordsGroupList);
-            this.recordsGroupList = this.recordsGroupList.sort();
+            this._recordsGroupList = this.recordsGroupList.filter( id => id != oldID);
+            this._recordsGroupList.push(newName);
+            this._recordsGroupList = this.recordsGroupList.sort();
             this.storeRecordsGroupList();
             this.storeSelectedRecordsGroup();
             localStorage.removeItem(oldID);
@@ -134,7 +156,8 @@ class TasksTrackingHelper {
         this.selectedRecordsTemplate = t.name;
         this.storeTemplates();
         this.loadTemplates();
-
+        tth._selectedRecordsGroup._type = t.name;
+        tth.storeSelectedRecordsGroup();
     }
 
 
@@ -266,6 +289,7 @@ class RecordsGroup {
     get id (){return this._id;}
     get date (){return this._date;}
     get type (){return this._type;}
+    set type(t){this._type = t;}
     get records (){return this._records;}
     get name (){return this._name;}
     set name (name){
@@ -380,25 +404,28 @@ class HTMLViews {
     }
 
     updateEventHandlers(){
-        let btnCopyCurrent = document.getElementById("btn-copy-current");
-        let btnCompleted = document.getElementById("btn-completed");
-        let btnSettings = document.getElementById("btn-settings");
-        this.simpleClick(btnCopyCurrent,this.copyInfo);
-        this.simpleClick(btnCompleted,this.trackCurrent);
-        this.simpleClick(btnSettings,this.toggleSettingsView);
-        //btnCopyCurrent.addEventListener(
-        //    "click", 
-        //    (() => this.copyInfo()).bind(this),
-        //    true
-        //);
-        //btnCompleted.addEventListener(
-        //    "click", 
-        //    (() => this.trackCurrent()).bind(this),
-        //    true
-        //);
-
-        // Toggle Settings button
-        //document.getElementById("btn-settings").addEventListener( "click", (() => this.toggleSettingsView()).bind(this));
+        // Clicks
+        let clickHandlers = new Map();
+        clickHandlers.set("btn-completed", this.trackCurrent);
+        clickHandlers.set("btn-copy-current",this.copyInfo);
+        clickHandlers.set("log", this.handleLogActions);
+        clickHandlers.set("btn-settings", this.toggleSettingsView);
+        clickHandlers.set("btn-change-name", this.triggerRenameCurrentRecordsGroup);
+        clickHandlers.set("btn-rg-new", this.triggerNewRecordsGroup);
+        clickHandlers.set("btn-rg-del", this.triggerDeleteCurrentRecordsGroup);
+        clickHandlers.set("settings-container", this.handleSettingsActions);
+        let clickAssign = (fn, id) => {
+            this.simpleAction( "click", document.getElementById(id), fn);
+        }
+        clickAssign.bind(this);
+        clickHandlers.forEach(clickAssign);
+        let changeAssign = (fn, id) => {
+            this.simpleAction("change", document.getElementById(id), fn);
+        }
+        changeAssign.bind(this);
+        let changeHandlers = new Map();
+        changeHandlers.set("rg-list", this.triggerChangeSelectedRececordsGroup);
+        changeHandlers.forEach(changeAssign)
 
         let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
         document.getElementById('tasks-info').addEventListener('click',
@@ -411,35 +438,42 @@ class HTMLViews {
 
             }).bind(this)
         );
-        
-        // Settings Container handlers
-        let settingsContainer = document.getElementById("settings-container");
-        settingsContainer.addEventListener(
-            "click",
-            ((event) => this.handleSettingsActions(event)).bind(this)
-        );
-
-
-        // log container handlers
-        document.getElementById("log").addEventListener("click",
-            ((event) => this.handleLogActions(event)).bind(this)
-        );
 
     }
+    simpleAction(action, element, fn){
+        element.addEventListener(
+            action,
+            (() => { 
+                let o = this;
+                o[fn.name](event);
+            }).bind(this)
+        );
+    }
     simpleClick(element, fn){
+        
         element.addEventListener(
             "click",
             (() => { 
                 let o = this;
-                o[fn.name]();
+                o[fn.name](event);
+            }).bind(this)
+        );
+    }
+    
+    simpleChange(element, fn){
+        element.addEventListener(
+            "change",
+            (() => { 
+                let o = this;
+                o[fn.name](event);
             }).bind(this)
         );
     }
 
     handleLogActions(event){
+        console.log(arguments);
         let elementID = event.target.id ;
         let arr = elementID.split("-");
-        console.log(arr);
         let fnList = new Map();
 
         fnList.set("dr",this.deleteRecordAndView);
@@ -454,6 +488,20 @@ class HTMLViews {
         let status = document.getElementById("chk-"+id).checked;
         this._tasksTrackingHelper._selectedRecordsGroup.setTrackedStatus(id, status);
         this._tasksTrackingHelper.storeSelectedRecordsGroup();
+        this.updateRecordBackground(id);
+    }
+
+    updateRecordBackground(id){
+        let status = document.getElementById("chk-"+id).checked;
+        let record = document.getElementById(id);
+        if (status == true){
+            record.classList.remove("record-untracked");
+            record.classList.add("record-tracked");
+        } else {
+            record.classList.remove("record-tracked");
+            record.classList.add("record-untracked");
+        }
+
     }
 
     deleteRecordAndView(id){
@@ -544,9 +592,12 @@ class HTMLViews {
 
 
     updateTemplatesSelect(templateName){
-        this._tasksTrackingHelper.selectedRecordsTemplate = templateName;
-        document.getElementById("template-text").value =
-            this._tasksTrackingHelper.selectedRecordsTemplate.templateText;
+        let tth = this._tasksTrackingHelper;
+        tth.selectedRecordsTemplate = templateName;
+        let t = tth.selectedRecordsTemplate;
+        document.getElementById("template-text").value = t.templateText;
+        tth._selectedRecordsGroup._type = t.name;
+        tth.storeSelectedRecordsGroup();
         this.loadTemplateView();
     }
 
@@ -571,7 +622,64 @@ class HTMLViews {
         let rgl = document.getElementById("rg-list");
         rgl.value = n;
     }
+    triggerRenameCurrentRecordsGroup(){
+        let rg = this._tasksTrackingHelper._selectedRecordsGroup;
+        let rgNameDisplay = document.getElementById("rg-selected-name");
+        let changeNameBtn = document.getElementById("btn-change-name");
+        if (!rgNameDisplay.isContentEditable){
+            rgNameDisplay.contentEditable = true;
+            rgNameDisplay.focus();
+            changeNameBtn.innerHTML="&#x1f4be;"; // utf8 floppy disk
+        } else {
+            changeNameBtn.innerHTML="&#x1f589;"; // utf8 LOWER LEFT PENCIL
+            rgNameDisplay.contentEditable = false;
+            let newName = rgNameDisplay.innerText;
+            let oldName = rg.name;
+            if (newName != oldName) {
+                this._tasksTrackingHelper.renameCurrentRecordsGroup(newName);
+                this.updateRecordsGroupList();
+                this.updateSelectedGroupInfo();
+            }
+        }
+    }
 
+    triggerNewRecordsGroup(){
+        let name = "RG "+ new Date().toISOString().slice(0,19);
+        this._tasksTrackingHelper.setupNewRecordsGroup( name, 'Default');
+        this.updateRecordsGroupList();
+        this.updateSelectedGroupInfo();
+        this.showCurrentGroup()
+    }
+
+    triggerDeleteCurrentRecordsGroup(){
+        let ok = confirm("Are you sure you want to delete the Records Group:\n"
+            + this._tasksTrackingHelper._selectedRecordsGroup.name);
+        if (ok) {
+            this._tasksTrackingHelper.deleteCurrentRecordsGroup();
+            this.updateRecordsGroupList();
+            this.updateSelectedGroupInfo();
+            this.showCurrentGroup()
+        }
+    
+    }
+
+    triggerChangeSelectedRececordsGroup(event){
+        let allDaltaSaved = this.isCurrentFormEmpty();
+        let ok = true;
+        if (!allDaltaSaved) {
+            ok = confirm("There is unsaved data, continue?");
+        }
+        if (ok) {
+            let sg = event.target.value;
+            this._tasksTrackingHelper.changeSelectedRecordsGroup(sg);
+            this.updateRecordsGroupList();
+            this.updateSelectedGroupInfo();
+            this.showCurrentGroup()
+            this.loadTemplateView();
+
+        }
+
+    }
 
     createInputFields() {
         this.tasksTrackingHelper.selectedRecordsTemplate.updateInputIDs().then( () => {
@@ -720,6 +828,21 @@ class HTMLViews {
         return info
     }
 
+    isCurrentFormEmpty () {
+        let hasFilledFields = false;
+        let hasComments = (document.getElementById("comments-text").value > 0);
+        let ids = this._tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
+
+        for (var index = 0, n = ids.length; index < n; index++) {
+            var inField = document.getElementById(ids[index]);
+            if (inField.value.length > 0) {
+                hasFilledFields = true;
+                break;
+            }
+        }
+        return !hasFilledFields && !hasComments;
+    }
+
     trackCurrent() {
         console.log("Tracking")
         let hasEmptyFields = false;
@@ -762,6 +885,8 @@ class HTMLViews {
         </div>` + logDiv.innerHTML;
         let status = taskRecord.tracked;
         this.checkForElement('chk-'+id).then(el => el.checked = status);
+        this.checkForElement(id).then(el => this.updateRecordBackground(el.id));
+        
     }
 
     showCurrentGroup() {

@@ -180,15 +180,24 @@ h3.count{
 }
 label.small-label{
     font-size: smaller;
+    font-weight: bold;
+    padding-right: 4px;
 }
 .record {
     margin-left: 4px;
     border:  1px solid gray;
+    border-radius: 4px;
     white-space: pre-line;
     grid-column-start: 2;
     grid-row-start: 1;
     grid-row-end: 3;
     padding: 1em;
+}
+.record-untracked{
+    background: rgb(255, 255, 179);
+}
+.record-tracked{
+    background: rgb(179, 255, 179);
 }
 .emoticon{
     font-size: 1.5em;
@@ -230,14 +239,23 @@ label.small-label{
     flex-direction: column;
 }
 #rg-selected-controls{
+    width: 100%;
     display: grid;
-    grid-template-columns: auto 32px 32px;
+    grid-template-columns: auto 32px;
     grid-template-rows: 32px;
     flex-grow: 2;
-    gap:4px;
-    margin: 4px;
-    flex-grow: 2;
+    gap: 4px;
     justify-self: flex-start;
+    margin-top: 3px;
+}
+#rg-group-controls{
+    margin-bottom: 2px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 24px 24px;
+    grid-template-rows: 24px;
+    gap: 2px;
+    justify-self: flex-end;
 }
 #rg-list{
     border: 1px solid black;
@@ -245,24 +263,31 @@ label.small-label{
     background: lightgreen;
     height: 24px;
     font-size: small;
-    margin-bottom: 4px;
-    margin-right: 4px;
-    justify-self: flex-end;
+  
 }
 #rg-selected-name {
     background: rgb(73, 158, 0);
     border-radius: 4px;
-    padding: 0.2em;
     font-size: 1.2em;
     font-weight: bold;
     text-align: center;
-
+    display: flex;
+    place-content: center;
+    flex-direction: column; 
+    width: 100%;
+    overflow: hidden;
 }
 .btn-rg{
     border: 1px solid black;
     background: whitesmoke;
     border-radius: 4px;
     font-size: 1.2em;
+}
+.btn-rg-list{
+    border: 1px solid black;
+    background: whitesmoke;
+    border-radius: 4px;
+    font-size: 0.9em;
 }
 .btn-rg:active{
     background: lightgray;
