@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -10,16 +11,16 @@
 <body>
     <div id="content">
         <div id="main-controls">
-            <button id="btn-settings">&#x2699;</button>
+            <button title="Template Settings" id="btn-settings">&#x2699;</button>
             <div class="rg-info">
                 <div id="rg-selected-controls">
                     <span id="rg-selected-name"></span>
-                    <button class="btn-rg" id="btn-change-name">&#x1F589</button>
+                    <button title="Change Name" class="btn-rg" id="btn-change-name">&#x1F589;</button>
                 </div>
                 <div id="rg-group-controls" >
                 <select name="rg-list" id="rg-list"></select>
-                    <button class="btn-rg-list" id="btn-rg-new">&plus;</button>
-                    <button class="btn-rg-list" id="btn-rg-del">&minus;</button>
+                    <button title="Create new group" class="btn-rg-list" id="btn-rg-new">&plus;</button>
+                    <button title="Delete current group" class="btn-rg-list" id="btn-rg-del">&minus;</button>
                 </div>
             </div>
         </div>
@@ -27,12 +28,12 @@
         <div id="entry">
             <div id="settings-container">
             </div>
-            <div id="in-fields">
+            <div class="input-fields-container" id="in-fields">
             </div>
             <div id="tasks-info">
 
             </div>
-            <div id="comments">
+            <div id="comments" class="comments-container">
                 <textarea name="comments-box" id="comments-text" placeholder="Comments"></textarea>
             </div>
             <div class="controls">

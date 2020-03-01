@@ -34,7 +34,59 @@ class TasksTrackingHelper {
         this._selectedRecordsTemplate = this.loadSelectedTemplate();
         this._recordsGroupList = this.loadRecordsGroupList();
         this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
+        this._taskOutcomesSelected = []
+        this._unsavedRecord =  null;
+        //this.loadUnsavedRecord();
         this._htmlViews = new HTMLViews(this);
+    }
+
+    storeUnsavedRecord(){
+        this.localSave("unsavedRecord", this._unsavedRecord);
+        this.localSave("unsavedOutcomes", this._taskOutcomesSelected);
+    }
+
+    resetUnsavedRecord(){
+        this._unsavedRecord._fieldsInfo.forEach(field => field[1] ="");
+        this._unsavedRecord._comments ="";
+    }
+
+    loadUnsavedRecord(){
+        let recordObj = this.loadLocalJSON("unsavedRecord");
+        let record = null;
+        if (recordObj) {
+            record = new TaskRecord(
+                recordObj._fieldsInfo,
+                recordObj._tasksAndOutcomes,
+                recordObj._comments,
+                "");
+        }
+        this._unsavedRecord = record || new TaskRecord([], [], "","");
+        if (this._unsavedRecord._fieldsInfo.length !=
+            this._selectedRecordsTemplate._inputFieldNames.length
+            ){
+            let oldInfo = this._unsavedRecord._fieldsInfo;
+            this._unsavedRecord._fieldsInfo = [];
+            this._selectedRecordsTemplate._inputFieldNames
+                .forEach(name => {
+                    this._unsavedRecord._fieldsInfo.push([name, ""])
+
+                }, this);
+
+            oldInfo.forEach((info, index) => {
+                try {
+                    this._unsavedRecord._fieldsInfo[index] = info[1];
+                } catch (error) {
+                    console.log(error)
+                }
+            }, this);
+        }
+        let storedTaskOutcomes =
+            this.loadLocalJSON("unsavedOutcomes", this._taskOutcomesSelected)
+            || [];
+        if (storedTaskOutcomes.length ==
+            this.selectedRecordsTemplate.tasks.length) {
+            this._taskOutcomesSelected = storedTaskOutcomes;
+        } 
     }
     get recordsGroupList () {return this._recordsGroupList};
     generateDefaultTemplateText() {
@@ -71,8 +123,15 @@ class TasksTrackingHelper {
             let obj = this.loadLocalJSON(recordsGroupID);
             if (obj !== null){
                 let records = obj._records.map(
-                    r => Object.assign(new TaskRecord("", ""), r)
-                );
+                    r => {
+                        let taskRecord = new TaskRecord(
+                            r._fieldsInfo,
+                            r._tasksAndOutcomes,
+                            r._comments,
+                            r._creationDate);
+                        taskRecord.tracked = r._tracked;
+                        return taskRecord ;
+                    });
                 rg = new RecordsGroup(obj._name, obj._type, obj._date, records);
             }  else {
                 rg = this.setupNewRecordsGroup('Default Group','Default');
@@ -135,6 +194,11 @@ class TasksTrackingHelper {
         localStorage.setItem('selectedRecordsTemplate', name);
         this._selectedRecordsTemplate = this.loadSelectedTemplate();
     }
+
+    updateSelectedTaskOutcome(taskIndex,outcomeIndex){
+        this._taskOutcomesSelected[taskIndex] = outcomeIndex;
+    }
+    
     loadSelectedTemplate(){
         let name = localStorage.getItem("selectedRecordsTemplate");
         let rt  = name ? this._recordsTemplates.get(name): null;
@@ -143,8 +207,14 @@ class TasksTrackingHelper {
             rt = this._recordsTemplates.get("Default");
             localStorage.setItem('selectedRecordsTemplate', name);
         }
+        this._taskOutcomesSelected = [];
+        rt.tasks.forEach(element => {
+            this._taskOutcomesSelected.push(0);
+            
+        }, this);
         return rt;
     }
+
 
     changeCurrentRecordsTemplate(text) {
         let t = new RecordsTemplate(text);
@@ -251,14 +321,17 @@ class Task {
 // TaskRecord
 // Stores the outcomes and entered fields in a single string.
 class TaskRecord{
-    constructor(summary, creationDate) {
-        this._summary = summary;
+    constructor(fieldsInfo, tasksAndOutcomes , comments, creationDate) {
+        this._fieldsInfo = fieldsInfo;
+        this._tasksAndOutcomes = tasksAndOutcomes;
+        this._comments = comments;
         this.tracked = false;
-        if (creationDate == "") {
+        this._creationDate = creationDate;
+        if (this._creationDate == "") {
             var now = new Date()
-            this.creationDate = now.toISOString().replace("T", " ").substring(0, 19);
+            this._creationDate = now.toISOString().replace("T", " ").substring(0, 19);
         }
-        this.recalculateID();
+        this._summary = this.getInfo();
     }
     get tracked(){ return this._tracked;}
     set tracked(val){this._tracked = val}
@@ -266,9 +339,16 @@ class TaskRecord{
         this.id = await hash(this._summary);
     }
     getInfo() {
-        return  this._summary + "Date: " + this.creationDate  ;
-
+        let info = this._fieldsInfo.map(infoPair => infoPair.join(": ")).join("\n");
+        info += "\n";
+        info += this._tasksAndOutcomes.map(infoPair => infoPair.join(" ")).join("\n");
+        info += "\n";
+        info += "Comments:\n" + this._comments || "NA";
+        info += "\n";
+        info += "Date: " + this._creationDate;
+        return info;
     }
+    
 
 }
 
@@ -350,9 +430,12 @@ class RecordsTemplate {
 
     async updateInputIDs(){
         this._inputFieldIDs = [];
+        let ids = []
         for (let index = 0, length = this._inputFieldNames.length; index < length; index++) {
-            this._inputFieldIDs.push(await hash(this._inputFieldNames[index]))
+            ids.push(await hash(this._inputFieldNames[index]))
         }
+        this._inputFieldIDs = ids;
+        return ids;
     }
 
     generateNameFromTemplate(){
@@ -368,7 +451,6 @@ class RecordsTemplate {
         if (lines[2].match(/Tasks:\n/g) != 0 ){
             for (let index = 3, count = lines.length; index < count; index++) {
                 const element = lines[index];
-                console.log("new task:" + element)
                 tasks.push(new Task(element));
             }
         }
@@ -387,11 +469,13 @@ class HTMLViews {
         this._displayingSettings = false;
         this.loadTemplateView();
         this.showCurrentGroup();
-        this. updateRecordsGroupView();
+        this.updateRecordsGroupInfoView();
+        this.showUnsavedRecord();
+        this.domParser = new DOMParser();
+
         document.addEventListener(
             'DOMContentLoaded',
             (() => {
-                console.log("DOM was loaded doing some stuff")
                 this.updateEventHandlers();
             }).bind(this)
         );
@@ -405,42 +489,24 @@ class HTMLViews {
 
     updateEventHandlers(){
         // Clicks
-        let clickHandlers = new Map();
-        clickHandlers.set("btn-completed", this.trackCurrent);
-        clickHandlers.set("btn-copy-current",this.copyInfo);
-        clickHandlers.set("log", this.handleLogActions);
-        clickHandlers.set("btn-settings", this.toggleSettingsView);
-        clickHandlers.set("btn-change-name", this.triggerRenameCurrentRecordsGroup);
-        clickHandlers.set("btn-rg-new", this.triggerNewRecordsGroup);
-        clickHandlers.set("btn-rg-del", this.triggerDeleteCurrentRecordsGroup);
-        clickHandlers.set("settings-container", this.handleSettingsActions);
-        let clickAssign = (fn, id) => {
-            this.simpleAction( "click", document.getElementById(id), fn);
-        }
-        clickAssign.bind(this);
-        clickHandlers.forEach(clickAssign);
-        let changeAssign = (fn, id) => {
-            this.simpleAction("change", document.getElementById(id), fn);
-        }
-        changeAssign.bind(this);
-        let changeHandlers = new Map();
-        changeHandlers.set("rg-list", this.triggerChangeSelectedRececordsGroup);
-        changeHandlers.forEach(changeAssign)
-
-        let tasks = this._tasksTrackingHelper.selectedRecordsTemplate.tasks;
-        document.getElementById('tasks-info').addEventListener('click',
-            (event => {
-                if (event.target.tagName == 'INPUT') {
-                    if (event.target.id.match(/\d+-\d+/).length > 0) {
-                        this.setOutcome(event.target.id);
-                    }
-                }
-
-            }).bind(this)
-        );
-
+        let handlerList = [
+            ["click", "#btn-completed", this.trackCurrent],
+            ["click", "#btn-copy-current", this.copyInfo],
+            ["click", "#log", this.handleLogActions],
+            ["click", "#btn-settings", this.toggleSettingsView],
+            ["click", "#btn-change-name", this.triggerRenameCurrentRecordsGroup],
+            ["click", "#btn-rg-new", this.triggerNewRecordsGroup],
+            ["click", "#btn-rg-del", this.triggerDeleteCurrentRecordsGroup],
+            ["click", "#settings-container", this.handleSettingsActions],
+            ["click", "#tasks-info", this.handleTaskOutcomeChange],
+            ["change", "#rg-list", this.triggerChangeSelectedRececordsGroup],
+            ["change", "#entry", this.updateUnsavedRecord]
+        ]
+        handlerList.forEach(handlerDesc => { this.simpleAction( ...handlerDesc) }, this);
     }
-    simpleAction(action, element, fn){
+
+    simpleAction(action, selector, fn){
+        let element = document.querySelector(selector);
         element.addEventListener(
             action,
             (() => { 
@@ -449,32 +515,19 @@ class HTMLViews {
             }).bind(this)
         );
     }
-    simpleClick(element, fn){
-        
-        element.addEventListener(
-            "click",
-            (() => { 
-                let o = this;
-                o[fn.name](event);
-            }).bind(this)
-        );
-    }
-    
-    simpleChange(element, fn){
-        element.addEventListener(
-            "change",
-            (() => { 
-                let o = this;
-                o[fn.name](event);
-            }).bind(this)
-        );
+    handleTaskOutcomeChange(event){
+        if (event.target.tagName == 'INPUT') {
+            if (event.target.id.match(/\d+-\d+/).length > 0) {
+                this.setOutcome(event.target.id);
+            }
+        }
+
     }
 
     handleLogActions(event){
-        console.log(arguments);
         let elementID = event.target.id ;
-        let arr = elementID.split("-");
-        let fnList = new Map();
+        let arr       = elementID.split("-");
+        let fnList    = new Map();
 
         fnList.set("dr",this.deleteRecordAndView);
         fnList.set("chk",this.markRecordTrackedStatus);
@@ -507,7 +560,7 @@ class HTMLViews {
     deleteRecordAndView(id){
         console.log("dr: "+id)
         let text = document.getElementById(id).innerText;
-        let ok = confirm(
+        let ok   = confirm(
             "Are you sure you want to delete:\n" + 
             "================================\n" + text
             );
@@ -570,7 +623,7 @@ class HTMLViews {
     }
     deleteSelectedRecordsTemplateAndView(){
         let tn = this._tasksTrackingHelper.selectedRecordsTemplate.name;
-        let ok  = confirm(`Are you sure you want to delete the template ${tn}?`)
+        let ok = confirm(`Are you sure you want to delete the template ${tn}?`)
         if (ok){
             this._tasksTrackingHelper.deleteSelectedRecordsTemplate();
             this.loadTemplateView();
@@ -594,7 +647,7 @@ class HTMLViews {
     updateTemplatesSelect(templateName){
         let tth = this._tasksTrackingHelper;
         tth.selectedRecordsTemplate = templateName;
-        let t = tth.selectedRecordsTemplate;
+        let t   = tth.selectedRecordsTemplate;
         document.getElementById("template-text").value = t.templateText;
         tth._selectedRecordsGroup._type = t.name;
         tth.storeSelectedRecordsGroup();
@@ -602,7 +655,7 @@ class HTMLViews {
     }
 
     // Records Group Section
-    updateRecordsGroupView(){
+    updateRecordsGroupInfoView(){
         this.updateRecordsGroupList();
         this.updateSelectedGroupInfo();
 
@@ -617,8 +670,8 @@ class HTMLViews {
     }
     updateSelectedGroupInfo(){
         let rgn = document.getElementById("rg-selected-name");
-        let n = this._tasksTrackingHelper._selectedRecordsGroup.name;
-        rgn.innerText = n; 
+        let n   = this._tasksTrackingHelper._selectedRecordsGroup.name;
+        rgn.innerText = n;
         let rgl = document.getElementById("rg-list");
         rgl.value = n;
     }
@@ -682,11 +735,11 @@ class HTMLViews {
     }
 
     createInputFields() {
-        this.tasksTrackingHelper.selectedRecordsTemplate.updateInputIDs().then( () => {
+        this.tasksTrackingHelper.selectedRecordsTemplate.updateInputIDs().then((ids) => {
             let inputFieldNames = this.tasksTrackingHelper.selectedRecordsTemplate.inputFieldNames;
             let fieldsContainer = document.getElementById("in-fields");
             fieldsContainer.innerHTML = "";
-            let ids = this.tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
+            //let ids = this.tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
             inputFieldNames.forEach((n, index) => {
                 fieldsContainer.innerHTML +=
                     `<label for="${ids[index]}" class="label">${n}</label>
@@ -783,6 +836,7 @@ class HTMLViews {
     }
 
     setOutcome(toid) {
+        this._tasksTrackingHelper.updateSelectedTaskOutcome(...toid.split("-"));
         let taskID = toid.split("-")[0];
         let tasks = this._tasksTrackingHelper._selectedRecordsTemplate.tasks;
         tasks[taskID].taskOutcomes.forEach((to, i) => {
@@ -843,11 +897,89 @@ class HTMLViews {
         return !hasFilledFields && !hasComments;
     }
 
+    showUnsavedRecord(){
+        let tth = this._tasksTrackingHelper;
+        tth.loadUnsavedRecord();
+        let show = (ids) => {
+            let fieldsInfo = tth._unsavedRecord._fieldsInfo;
+            try {
+                ids.forEach((elementId, index) => {
+                    this.checkForElement(elementId).then(
+                        (element) => {
+                            element.value = fieldsInfo[index][1]
+                        }
+                    )
+                    
+                },this);
+            } catch (error) {
+                console.log(error)
+            }
+
+            try {
+                tth._taskOutcomesSelected.forEach(
+                    (outcomeIndex, taskIndex) => {
+                        let toid = taskIndex + "-" + outcomeIndex;
+                        document.getElementById(toid).checked = true;
+                        this.setOutcome(toid);
+
+                    }
+                    , this);error
+                
+            } catch (error) {
+                console.log(error)
+            }
+            try {
+                document.getElementById("comments-text").value = tth._unsavedRecord._comments;
+                
+            } catch (error) {
+                console.log(error)
+                
+            }
+
+        }
+        show.bind(this);
+
+        tth.selectedRecordsTemplate.updateInputIDs().then(show);
+        
+    }
+
+    updateUnsavedRecord(event){
+        console.log(event);
+        let target = event.target
+        let parent = event.target.parentNode;
+        let tth = this.tasksTrackingHelper;
+        switch (parent.className) {
+            case "input-fields-container":
+                let index = tth._selectedRecordsTemplate
+                    ._inputFieldIDs.indexOf(target.id);
+                let value =  document.getElementById(target.id).value;
+                let fieldName = tth._selectedRecordsTemplate._inputFieldNames[index];
+                tth._unsavedRecord._fieldsInfo[index] = [fieldName,value];
+                break;
+
+            case "outcomes-container":
+                let arr = target.id.split("-");
+                tth.updateSelectedTaskOutcome(...arr);
+                break;
+
+            case "comments-container":
+                tth._unsavedRecord._comments = 
+                    document.getElementById(target.id).value;
+                break;
+            default:
+                break;
+        }
+        tth.storeUnsavedRecord();
+        //let parent
+        //this._tasksTrackingHelper.storeUnsavedRecord();
+    }
+
     trackCurrent() {
         console.log("Tracking")
         let hasEmptyFields = false;
         let ids = this._tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
         let taskRecordsGroup = this._tasksTrackingHelper._selectedRecordsGroup;
+        let selectedTemplate = this._tasksTrackingHelper._selectedRecordsTemplate;
 
         for (var index = 0, n = ids.length; index < n; index++) {
             var inField = document.getElementById(ids[index]);
@@ -860,11 +992,29 @@ class HTMLViews {
 
         if (!hasEmptyFields) {
             var info = this.getCurrentInfo();
-            var tr = new TaskRecord(info, "");
+            // Create fields Array
+            let fieldsInfo = ids.map((id, index) => 
+                [selectedTemplate.inputFieldNames[index], 
+                document.getElementById(id).value]);
+
+            // Create tasks and Outcomes Array
+            let tasksAndOutcomes = this._tasksTrackingHelper._taskOutcomesSelected
+                .map(
+                    (outcomeIndex, taskIndex) => {
+                        let tasks = selectedTemplate.tasks;
+                        let desc = tasks[taskIndex].taskDescription
+                        let outcome = tasks[taskIndex].taskOutcomes[outcomeIndex]
+                        return [desc, outcome];
+                    }
+                );
+
+            let comments = document.getElementById("comments-text").value;
+            var tr = new TaskRecord(fieldsInfo, tasksAndOutcomes, comments, "");
             taskRecordsGroup.addRecord(tr);
             this._tasksTrackingHelper.storeSelectedRecordsGroup();
             tr.recalculateID().then(() => this.showInLog(tr));
             this.clearFields();
+            this._tasksTrackingHelper.storeUnsavedRecord(); // After cleared
         }
     }
 
@@ -872,17 +1022,19 @@ class HTMLViews {
         let logDiv = document.getElementById("log");
         this._logCount += 1;
         let id = taskRecord.id;
-        logDiv.innerHTML =
+        let record =
             `<div class='record-container' id='rc-${id}'>
-                    <button class='copy' onclick=copyToClipboard('${id}')>&#x2398</button>
+                    <button class='copy' onclick="copyToClipboard('${id}')">&#x2398;</button>
                     <div class='record-header'> 
                         <h3 class='count'>${this.logCount}</h3> 
                         <label for='chk-${id}' class='small-label'>Tracked</label> 
-                        <input id='chk-${id}' type=checkbox>
+                        <input id='chk-${id}' type='checkbox'/>
                         <button class='delete-btn' id='dr-${id}'>&#x1F5D1;</button>
                     </div>
-                    <div id='${id}' class=\"record\">${taskRecord.getInfo()}</div> 
-        </div>` + logDiv.innerHTML;
+                    <div id='${id}' class='record'>${taskRecord.getInfo()}</div> 
+            </div>`;
+        let element =  this.domParser.parseFromString(record.toString(), 'text/html');
+        logDiv.prepend(element.body.firstChild);
         let status = taskRecord.tracked;
         this.checkForElement('chk-'+id).then(el => el.checked = status);
         this.checkForElement(id).then(el => this.updateRecordBackground(el.id));
@@ -903,6 +1055,7 @@ class HTMLViews {
         let ids = this._tasksTrackingHelper.selectedRecordsTemplate.inputFieldIDs;
         ids.forEach(id => document.getElementById(id).value = "");
         this.setDefaults();
+        this._tasksTrackingHelper.resetUnsavedRecord();
         document.getElementById("comments-text").value = "";
     }
     // Copy current info to clipboard
