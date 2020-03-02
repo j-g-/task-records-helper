@@ -63,17 +63,49 @@ div#content {
     display: grid;
     margin: 0.5em;
     font-size: 1em;
-    grid-template-columns: 7em auto 32px;
+    grid-template-columns: auto 32px;
+    grid-template-rows: auto ;
     grid-gap: 4px;
-    justify-items: center;
-    align-items: center;
+    justify-items: left;
+    align-items: left;
+    height: auto;
+    margin-bottom: 1.5em;
 }
-#in-fields > input {
-    padding-left: 0.5em;
-    height:32px;
-    border-radius: 4px;
-    border: 1px solid darkgray;
+.input-field {
+    height:20px;
+    margin: 0px;
+    padding: 0px;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    border-bottom: 1px solid darkgray;
+    font-size: 12px;
+    width: 100%;
 }
+.input-field:focus{
+    outline: none;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    border-bottom: 1px solid  rgb(73, 158, 0);
+
+}
+.input-field-container{
+    width: 100%;
+    display: grid;
+    grid-template-columns: 100%;
+    grid-template-rows: 12px 20px;
+    height: 32px;
+}
+
+.input-field-label{
+    margin: 0pxx;
+    padding: 1px;
+    height: 12px;
+    color: rgb(59, 59, 59);
+    font-size: 10px;
+}
+
 input.radio-option{display:none; width:0px; visibility: hidden;} 
 input {
     border: 1px solid gray;
@@ -252,7 +284,7 @@ label.small-label{
     margin-bottom: 2px;
     width: 100%;
     display: grid;
-    grid-template-columns: auto 24px 24px;
+    grid-template-columns: auto 24px 24px 24px;
     grid-template-rows: 24px;
     gap: 2px;
     justify-self: flex-end;
@@ -281,14 +313,29 @@ label.small-label{
     border: 1px solid black;
     background: whitesmoke;
     border-radius: 4px;
-    font-size: 1.2em;
+    font-size: 1.5em;
+    display: flex;
+    margin: 0px;
+    padding: 0px;
+    place-content: center;
+    flex-direction: column;
+    align-items: center;
 }
+
 .btn-rg-list{
     border: 1px solid black;
     background: whitesmoke;
     border-radius: 4px;
-    font-size: 0.9em;
+    font-size: 1.5em;
+    display: flex;
+    flex-direction: column;
+    place-content: center;
+    margin: 0px;
+    padding: 0px;
+    align-items: center;
+
 }
+
 .btn-rg:active{
     background: lightgray;
 }
