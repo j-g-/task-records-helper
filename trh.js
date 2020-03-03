@@ -401,7 +401,7 @@ class RecordsGroup {
         return info;
     }
     toBlob(){
-        return new Blob([this.toPrettyString()],{type: "text/plain"})
+        return new Blob([this.toPrettyString()],{type: "text/plain", endings:"native"});
     }
 }
 
