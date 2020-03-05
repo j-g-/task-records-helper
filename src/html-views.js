@@ -29,8 +29,6 @@ export default class HTMLViews {
     updateEventHandlers(){
         // Clicks
         let handlerList = [
-            //["click", "#btn-completed", this.trackCurrent],
-            //["click", "#btn-copy-current", this.copyInfo],
             ["click", "#current-record-controls", this.handleCurrentRecordActions],
             ["click", "#log", this.handleLogActions],
             ["click", "#btn-settings", this.toggleSettingsView],
@@ -543,7 +541,7 @@ export default class HTMLViews {
                 this.copyToClipboard(this.getCurrentInfo());
                 break;
             case 'btn-track-current':
-                this.copyToClipboard(this.trackCurrent());
+                this.trackCurrent();
                 break;
             default:
                 break;
