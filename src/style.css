@@ -126,7 +126,7 @@ input {
     padding-bottom: 0.1em;
 }
 
-.controls {
+.record-controls {
     margin: 4px;
     display: flex;
     flex-direction: row;

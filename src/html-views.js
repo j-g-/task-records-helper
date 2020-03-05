@@ -1,476 +1,10 @@
-//
-// Copyright (c) 2020, J. Garcia <0x4a.dev at gmail.com> 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//     * Neither the name of the copyright holder nor the
-//       names of its contributors may be used to endorse or promote products
-//       derived from this software without specific prior written permission.
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-
-// Main Object Class
-// Defines the main general variables and functions to start the app
-class TasksTrackingHelper {
-
-    constructor(){
-        this._recordsTemplates = this.loadTemplates();
-        this._selectedRecordsTemplate = this.loadSelectedTemplate();
-        this._recordsGroupList = this.loadRecordsGroupList();
-        this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
-        this._taskOutcomesSelected = []
-        this._unsavedRecord =  null;
-        //this.loadUnsavedRecord();
-        this._htmlViews = new HTMLViews(this);
-    }
-
-    storeUnsavedRecord(){
-        this.localSave("unsavedRecord", this._unsavedRecord);
-        this.localSave("unsavedOutcomes", this._taskOutcomesSelected);
-    }
-
-    resetUnsavedRecord(){
-        this._unsavedRecord._fieldsInfo.forEach(field => field[1] ="");
-        this._unsavedRecord._comments ="";
-        this._taskOutcomesSelected = [];
-        this._selectedRecordsTemplate.tasks
-            .forEach(() => this._taskOutcomesSelected.push(0), this);
-        this.storeUnsavedRecord();
-    }
-
-    loadUnsavedRecord(){
-        let recordObj = this.loadLocalJSON("unsavedRecord");
-        let comments = (recordObj) ? recordObj._comments : "";
-        let record = new TaskRecord([],[],comments,"");
-        let oldFieldsInfo = new Map(
-            (recordObj) ? recordObj._fieldsInfo : []
-        );
-        let rt = this._selectedRecordsTemplate;
-        let updatedFieldsInfo = [];
-        rt._inputFieldNames.forEach(fieldName => {
-            let value = (oldFieldsInfo.has(fieldName)) ?
-                oldFieldsInfo.get(fieldName) : "";
-            updatedFieldsInfo.push([fieldName, value]);
-        });
-        record._fieldsInfo = updatedFieldsInfo;
-        this._unsavedRecord = record;
-
-        let storedTaskOutcomes =
-            this.loadLocalJSON("unsavedOutcomes", this._taskOutcomesSelected)
-            || Array(rt.tasks.length).fill(0);
-        let updatedTaskOutcomes = Array(rt.tasks.length).fill(0);
-        let copyEnd = (storedTaskOutcomes.length >= rt.tasks.length) ?
-            rt.tasks.length :
-            storedTaskOutcomes.length;
-        for (let index = 0; index < copyEnd; index++) {
-            updatedTaskOutcomes[index] =
-                (storedTaskOutcomes[index] <=
-                    rt.tasks[index].taskOutcomes.length) ?
-                    storedTaskOutcomes[index] : 0;
-
-        }
-        storedTaskOutcomes = updatedTaskOutcomes; 
-        this._taskOutcomesSelected = storedTaskOutcomes;
-    }
-    get recordsGroupList () {return this._recordsGroupList};
-    generateDefaultTemplateText() {
-        let defaultTemplate = "";
-        defaultTemplate +=
-            (this._recordsTemplates.get("Default")) ?
-                "Default " + new Date().toISOString() + "\n":
-                "Default\n";
-        defaultTemplate +=
-            "Fields:ID\n" +
-            "Tasks:\n" +
-            "Completed?::Yes/No";
-        return defaultTemplate;
-    }
-
-    loadRecordsGroupList(){
-        let rgl = this.loadLocalJSON('recordsGroupList') || [];
-        return rgl;
-    }
-    storeRecordsGroupList(){
-        this.localSave('recordsGroupList', this.recordsGroupList);
-    }
-
-    storeSelectedRecordsGroup(){
-        this.localSave("selectedRecordsGroup",this._selectedRecordsGroup.id );
-        this.localSave(this._selectedRecordsGroup.id , this._selectedRecordsGroup);
-    }
-
-    loadSelectedRecordsGroup(){
-        let recordsGroupID = localStorage.getItem("selectedRecordsGroup");
-        recordsGroupID = JSON.parse(recordsGroupID);
-        let rg = null;
-        if (recordsGroupID != null) {
-            let obj = this.loadLocalJSON(recordsGroupID);
-            if (obj !== null){
-                let records = obj._records.map(
-                    r => {
-                        let taskRecord = new TaskRecord(
-                            r._fieldsInfo,
-                            r._tasksAndOutcomes,
-                            r._comments,
-                            r._creationDate);
-                        taskRecord.tracked = r._tracked;
-                        return taskRecord ;
-                    });
-                rg = new RecordsGroup(obj._name, obj._type, obj._date, records);
-            }  else {
-                rg = this.setupNewRecordsGroup('Default Group','Default');
-            } 
-
-        } else {
-            rg = this.setupNewRecordsGroup('Default Group', 'Default');
-
-        }
-        if (this._recordsTemplates.has(rg.type) &&
-            (rg.type != this._selectedRecordsTemplate.name)) {
-                this.selectedRecordsTemplate = rg.type
-        } else if ( !this._recordsTemplates.has(rg.type)) {
-            rg.type = this._selectedRecordsTemplate.name;
-            this.storeSelectedRecordsGroup();
-        }
-        return rg;
-    }
-    deleteCurrentRecordsGroup(){
-        let currentID = this._selectedRecordsGroup.id;
-        this._recordsGroupList = this.recordsGroupList.filter( id => id != currentID );
-        this.storeRecordsGroupList();
-        this.localSave("selectedRecordsGroup", "");
-        localStorage.removeItem(currentID);
-        if (this.recordsGroupList.length > 0) {
-            this.localSave("selectedRecordsGroup", this.recordsGroupList[0]);
-        }
-        this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
-    }
-    setupNewRecordsGroup(name, type){
-        let rg = new RecordsGroup(name,type);
-        this._recordsGroupList.push(rg.id);
-        this.storeRecordsGroupList();
-        this._selectedRecordsGroup = rg;
-        this.storeSelectedRecordsGroup();
-        return rg;
-    }
-    changeSelectedRecordsGroup(id) {
-        this.localSave("selectedRecordsGroup", id);
-        this._selectedRecordsGroup = this.loadSelectedRecordsGroup();
-    }
-    renameCurrentRecordsGroup(newName){
-        let repeated = this.recordsGroupList.includes(newName);
-        if (!repeated) {
-            let oldID = this._selectedRecordsGroup.id;
-            this._selectedRecordsGroup.name = newName;
-            this._recordsGroupList = this.recordsGroupList.filter( id => id != oldID);
-            this._recordsGroupList.push(newName);
-            this._recordsGroupList = this.recordsGroupList.sort();
-            this.storeRecordsGroupList();
-            this.storeSelectedRecordsGroup();
-            localStorage.removeItem(oldID);
-        }
-    }
-
-    get selectedRecordsTemplate(){
-        return this._selectedRecordsTemplate;
-    }
-    set selectedRecordsTemplate(name){
-        localStorage.setItem('selectedRecordsTemplate', name);
-        this._selectedRecordsTemplate = this.loadSelectedTemplate();
-    }
-
-    updateSelectedTaskOutcome(taskIndex,outcomeIndex){
-        this._taskOutcomesSelected[taskIndex] = outcomeIndex;
-    }
-    
-    loadSelectedTemplate(){
-        let name = localStorage.getItem("selectedRecordsTemplate");
-        let rt  = name ? this._recordsTemplates.get(name): null;
-        if (rt === null) {
-            name = "Default";
-            rt = this._recordsTemplates.get("Default");
-            localStorage.setItem('selectedRecordsTemplate', name);
-        }
-        return rt;
-    }
-
-
-    changeCurrentRecordsTemplate(text) {
-        let t = new RecordsTemplate(text);
-        let currentName = this.selectedRecordsTemplate.name;
-        if (t.name != currentName) {
-            this._recordsTemplates.delete(currentName)
-        }
-        this._recordsTemplates.set(t.name, t);
-        this.selectedRecordsTemplate = t.name;
-        this.storeTemplates();
-        this.loadTemplates();
-        tth._selectedRecordsGroup._type = t.name;
-        tth.storeSelectedRecordsGroup();
-    }
-
-
-    storeTemplates(){
-        localStorage.setItem('selectedRecordsTemplate', this.selectedRecordsTemplate.name);
-        let arr = Array.from(this._recordsTemplates).map( rt => rt[1].templateText);
-        localStorage.setItem("storedTemplates", JSON.stringify(arr));
-    }
-
-    addTemplate(text){
-        const rt = new RecordsTemplate(text);
-        this._recordsTemplates.set(rt.name,rt);
-        this.selectedRecordsTemplate = rt.name;
-        this.storeTemplates();
-    }
-    deleteSelectedRecordsTemplate(){
-        let stName = this.selectedRecordsTemplate.name
-        this._recordsTemplates.delete(stName)
-        this.storeTemplates();
-        let newSelection = this._recordsTemplates.keys().next()
-        if (newSelection.value) {
-            this.selectedRecordsTemplate = newSelection.value;
-        } else {
-            this.loadTemplates();
-        }
-    }
-
-    loadTemplates(){
-        let jsonTemplates = this.loadLocalJSON('storedTemplates');
-        this._recordsTemplates = new Map();
-        if (jsonTemplates != null) {
-            jsonTemplates.forEach(
-                templateText => {
-                    let rt = new RecordsTemplate(templateText);
-                    this._recordsTemplates.set(rt.name, rt);
-                }
-            );
-        }
-        if (this._recordsTemplates.size == 0 ){
-            console.log("No stored templates, generating default")
-            let defaultTemplate =  this.generateDefaultTemplateText();
-            let rt = new RecordsTemplate(defaultTemplate)
-            this._recordsTemplates.set(rt.name, rt);
-            this._selectedRecordsTemplate = rt;
-            this.storeTemplates();
-        }
-        return this._recordsTemplates;
-    }
-
-    localSave(key, obj) {
-        localStorage.setItem(key, JSON.stringify(obj));
-    }
-
-    loadLocalJSON (key) {
-        let jsonString =  localStorage.getItem(key);
-        return  ( jsonString != null) ?  JSON.parse(jsonString) : null;
-    }
-}
-
-
-// Task 
-// Defined by a single line string in the format:
-// TaskDescription::Outcome1/Outcome2...
-// where :: delimitts description and outcomes
-// and / delimits each possible outcome
-class Task {
-    constructor(defString){
-        this._defString = defString;
-        let parts = this._defString.split("::");
-        if (parts.length != 2) {
-            throw new SyntaxError(
-                `Invalid Task definition: ${this._defString}`);
-        };
-        this._taskDescription = parts[0];
-        this._taskOutcomes = parts[1].split("/");
-        if (this._taskOutcomes.length == 0) {
-            throw new SyntaxError(
-                `Invalid Task definition: ${this._defString}\n
-                missing outcomes`);
-        }
-    }
-    get taskDescription() {
-        return this._taskDescription;
-    }
-    get taskOutcomes (){
-        return this._taskOutcomes;
-    }
-}
-
-// TaskRecord
-// Stores the outcomes and entered fields in a single string.
-class TaskRecord{
-    constructor(fieldsInfo, tasksAndOutcomes , comments, creationDate) {
-        this._fieldsInfo = fieldsInfo;
-        this._tasksAndOutcomes = tasksAndOutcomes;
-        this._comments = comments;
-        this.tracked = false;
-        this._creationDate = creationDate;
-        if (this._creationDate == "") {
-            var now = new Date()
-            this._creationDate = now.toISOString().replace("T", " ").substring(0, 19);
-        }
-        this._summary = this.getInfo();
-    }
-    get tracked(){ return this._tracked;}
-    set tracked(val){this._tracked = val}
-    async recalculateID () {
-        this.id = await hash(this._summary);
-    }
-    getInfo() {
-        let info = this._fieldsInfo.map(infoPair => infoPair.join(": ")).join("\n");
-        info += "\n";
-        info += this._tasksAndOutcomes.map(infoPair => infoPair.join(" ")).join("\n");
-        info += "\n";
-        info += "Comments:\n" + this._comments || "NA";
-        info += "\n";
-        info += "Date: " + this._creationDate;
-        return info;
-    }
-    
-
-}
-
-// RecordsGroup
-// Holds a records group with date and type
-class RecordsGroup {
-    constructor(name,type, ...args) {
-        this._type = type;
-        this._name = name;
-        this._date = 
-            (args.length == 2) ?
-                args[0] :
-                new Date().toISOString().replace("T", " ").substring(0, 19);
-        this._id = this.generateID();
-        this._records = (args.length == 2) ? args[1]: [];
-    }
-
-    get id (){return this._id;}
-    get date (){return this._date;}
-    get type (){return this._type;}
-    set type(t){this._type = t;}
-    get records (){return this._records;}
-    get name (){return this._name;}
-    set name (name){
-        this._name = name;
-        this._id = this.generateID();
-    }
-    
-    generateID () { 
-        return this._name; 
-    }
-    addRecord(r) {
-        this._records.push(r);
-    }
-    deleteRecord(id) {
-        this._records =
-            this._records.filter(r => r.id !== id);
-        console.log("deleted: " +id);
-        console.log(this._records);
-    }
-    setTrackedStatus(id, status) {
-        let r = this._records.find(r => r.id === id);
-        r.tracked = status;
-    }
-    getTrackedStatus(id) {
-        let r = this._records.find(r => r.id === id);
-        return r.tracked ;
-    }
-    toPrettyString(){
-        let dashes = "\n" + "-".repeat(80) + "\n";
-        let stars = "*".repeat(80) + "\n";
-        let info = stars;
-        info += `Records Group : ${this.name}\nCreated on: ${this.date}\n`
-        info += stars;
-        info += this.records.map(r => r._summary).join(dashes);
-        return info;
-    }
-    toBlob(){
-        return new Blob([this.toPrettyString()],{type: "text/plain", endings:"native"});
-    }
-}
-
-// RecordsTemplate
-// Stores input values and tasks related to 
-// a Record type
-class RecordsTemplate {
-    constructor(templateText){
-        this._templateText = templateText;
-        this.updateTemplate();
-    }
-    get name() { return this._name; }
-    set name(n) { this._name = n; }
-    get inputFieldNames() { return this._inputFieldNames; }
-    get inputFieldIDs() { return this._inputFieldIDs; }
-    get tasks() { return this._tasks; }
-    get templateText() { return this._templateText; }
-    set templateText(text) { 
-        this._templateText = text; 
-        this.updateTemplate(); 
-    }
-
-    updateTemplate() {
-        let rawLines = this._templateText.split('\n');
-        this._lines = rawLines.filter(l => l != "");
-        this._name = this.generateNameFromTemplate();
-        this._inputFieldNames = this.generateInputFields();
-        this._inputFieldIDs = [];
-        this._tasks = this.generateTasks();
-
-    }
-
-    async updateInputIDs(){
-        this._inputFieldIDs = [];
-        let ids = []
-        for (let index = 0, length = this._inputFieldNames.length; index < length; index++) {
-            ids.push(await hash(this._inputFieldNames[index]))
-        }
-        this._inputFieldIDs = ids;
-        return ids;
-    }
-
-    generateNameFromTemplate(){
-        return this._lines[0];
-    }
-    generateInputFields(){
-        let line = this._lines[1];
-        return line.replace(/Fields:\s*/,'').split(',');
-    }
-    generateTasks(){
-        let tasks = [];
-        let lines = this._templateText.split('\n');
-        if (lines[2].match(/Tasks:\n/g) != 0 ){
-            for (let index = 3, count = lines.length; index < count; index++) {
-                const element = lines[index];
-                tasks.push(new Task(element));
-            }
-        }
-        return tasks;
-    }
-
-}
-
-
 // HTMLView
 // displays and retrieves info to and from the DOM 
-class HTMLViews {
+import TaskRecord from './task-record.js';
+//import {hash, copyToClipboard, copyInputToClipboard} from './trh.js'
+export default class HTMLViews {
     constructor(tasksTrackingHelper){
-        this._tasksTrackingHelper = tasksTrackingHelper
+        this._tasksTrackingHelper = tasksTrackingHelper;
         this._logCount = 0;
         this._displayingSettings = false;
         this.loadTemplateView();
@@ -495,8 +29,9 @@ class HTMLViews {
     updateEventHandlers(){
         // Clicks
         let handlerList = [
-            ["click", "#btn-completed", this.trackCurrent],
-            ["click", "#btn-copy-current", this.copyInfo],
+            //["click", "#btn-completed", this.trackCurrent],
+            //["click", "#btn-copy-current", this.copyInfo],
+            ["click", "#current-record-controls", this.handleCurrentRecordActions],
             ["click", "#log", this.handleLogActions],
             ["click", "#btn-settings", this.toggleSettingsView],
             ["click", "#btn-change-name", this.triggerRenameCurrentRecordsGroup],
@@ -530,6 +65,13 @@ class HTMLViews {
 
     }
 
+    copyRecord(id){
+        console.log("trying to copy " + id);
+        this.copyToClipboard(
+            document.getElementById(id).innerText
+        )
+
+    }
     handleLogActions(event){
         let elementID = event.target.id ;
         let arr       = elementID.split("-");
@@ -537,6 +79,7 @@ class HTMLViews {
 
         fnList.set("dr",this.deleteRecordAndView);
         fnList.set("chk",this.markRecordTrackedStatus);
+        fnList.set("copy", this.copyRecord);
         let f = fnList.get(arr[0]);
         if (f){
             let h = this;
@@ -994,6 +537,20 @@ class HTMLViews {
         //this._tasksTrackingHelper.storeUnsavedRecord();
     }
 
+    handleCurrentRecordActions(event){
+        switch (event.target.id) {
+            case 'btn-copy-current':
+                this.copyToClipboard(this.getCurrentInfo());
+                break;
+            case 'btn-track-current':
+                this.copyToClipboard(this.trackCurrent());
+                break;
+            default:
+                break;
+        }
+
+    }
+
     trackCurrent() {
         console.log("Tracking")
         let hasEmptyFields = false;
@@ -1044,7 +601,7 @@ class HTMLViews {
         let id = taskRecord.id;
         let record =
             `<div class='record-container' id='rc-${id}'>
-                    <button class='copy' onclick="copyToClipboard('${id}')">&#x2398;</button>
+                    <button class='copy' id='copy-${id}'>&#x2398;</button>
                     <div class='record-header'> 
                         <h3 class='count'>${this.logCount}</h3> 
                         <label for='chk-${id}' class='small-label'>Tracked</label> 
@@ -1079,13 +636,14 @@ class HTMLViews {
         document.getElementById("comments-text").value = "";
     }
     // Copy current info to clipboard
-    copyInfo() {
-        navigator.clipboard.writeText(this.getCurrentInfo()).then(function () {
+    // copyInfo
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function () {
             /* clipboard successfully set */
-            console.log("Text copied")
+            console.log("Text copied");
         }, function () {
             /* clipboard write failed */
-            console.log("Text not copied")
+            console.log("Text not copied");
         });
 
     }
@@ -1099,28 +657,4 @@ class HTMLViews {
     }
 
 }
-
-function copyToClipboard(divID) {
-    var r = document.createRange();
-    r.selectNode(document.getElementById(divID));
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(r);
-    document.execCommand("copy");
-    window.getSelection().removeAllRanges();
-}
-function copyInputToClipboard(inputID) {
-    document.getSelection().removeAllRanges();
-    document.getElementById(inputID).select();
-    document.execCommand("copy");
-    document.getSelection().removeAllRanges();
-}
-async function hash(text) {
-    const msgUint8 = new TextEncoder().encode(text);
-    const buffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(buffer));
-    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hex;
-}
-
-let tth = new TasksTrackingHelper();
 
