@@ -52,6 +52,11 @@ export default class RecordsGroup {
         info += this.records.map(r => r._summary).join(dashes);
         return info;
     }
+    getRecord(id){
+        let r = this._records.find(r => r.id === id);
+        console.log(r);
+        return r;
+    }
     toBlob(){
         return new Blob([this.toPrettyString()],{type: "text/plain", endings:"native"});
     }

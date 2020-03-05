@@ -37,11 +37,20 @@ export default class HTMLViews {
             ["click", "#btn-rg-del", this.triggerDeleteCurrentRecordsGroup],
             ["click", "#btn-rg-download", this.triggerDownloadRecordsGroup],
             ["click", "#settings-container", this.handleSettingsActions],
+            ["click", "#in-fields", this.handleInputActions],
             ["click", "#tasks-info", this.handleTaskOutcomeChange],
             ["change", "#rg-list", this.triggerChangeSelectedRececordsGroup],
             ["change", "#entry", this.updateUnsavedRecord]
         ]
         handlerList.forEach(handlerDesc => { this.simpleAction( ...handlerDesc) }, this);
+    }
+    handleInputActions(event){
+        let id = event.target.id;
+        let arr = id.split("-");
+        if(arr[0] == "copy_input") {
+            this.copyToClipboard(document.getElementById(arr[1]).value);
+        }
+
     }
 
     simpleAction(action, selector, fn){
@@ -66,7 +75,8 @@ export default class HTMLViews {
     copyRecord(id){
         console.log("trying to copy " + id);
         this.copyToClipboard(
-            document.getElementById(id).innerText
+            this._tasksTrackingHelper
+                ._selectedRecordsGroup.getRecord(id).summary
         )
 
     }
@@ -304,8 +314,7 @@ export default class HTMLViews {
                         <label for="${ids[index]}" class="input-field-label">${n}</label>
                         <input class='input-field' id="${ids[index]}" type="text">
                     </div>
-                    <button tabindex="-1" class='copy' 
-                    onclick="copyInputToClipboard('${ids[index]}')">&#x2398</button>`
+                    <button tabindex="-1" id="copy_input-${ids[index]}" class='copy' >&#x2398</button>`
             });
         }) ;
     }

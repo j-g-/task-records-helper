@@ -15,6 +15,7 @@ export default class TaskRecord{
         this._summary = this.getInfo();
     }
     get tracked(){ return this._tracked;}
+    get summary(){ return this._summary;}
     set tracked(val){this._tracked = val}
     async recalculateID () {
         this.id = await hash(this._summary);
