@@ -22,11 +22,24 @@ export default class RecordsTemplate {
 
     updateTemplate() {
         let rawLines = this._templateText.split('\n');
-        this._lines = rawLines.filter(l => l != "");
-        this._name = this.generateNameFromTemplate();
-        this._inputFieldNames = this.generateInputFields();
-        this._inputFieldIDs = [];
-        this._tasks = this.generateTasks();
+        this._lines = rawLines.filter(l => l.length > 0);
+        try {
+            // attempt parse
+            let newName = this.generateNameFromTemplate();
+            let newInputFieldNames = this.generateInputFields();
+            let newTasks = this.generateTasks();
+            // assign values if no errors returned
+            this._name = newName;
+            this._inputFieldNames = newInputFieldNames;
+            this._inputFieldIDs = [];
+            this._tasks = newTasks;
+        } catch (error) {
+            this._name = "Parse Error";
+            this._inputFieldNames = ["Error"];
+            this._inputFieldIDs = [];
+            this._tasks = [new Task("Error::Error")];
+            console.log(error);
+        }
 
     }
 
@@ -41,11 +54,23 @@ export default class RecordsTemplate {
     }
 
     generateNameFromTemplate(){
-        return this._lines[0];
+        if (this._lines[0].match(/[^\s]+/)) {
+            return this._lines[0];
+        } else {
+            throw new SyntaxError("No name entered");
+        }
     }
     generateInputFields(){
-        let line = this._lines[1];
-        return line.replace(/Fields:\s*/,'').split(',');
+        if (this._lines[1] !== undefined) {
+            let reg = /(?<=^Fields:\s*).+/;
+            let match = this._lines[1].match(reg);
+            if (match) {
+                return match[0].split(',');
+
+            } else {
+                throw new SyntaxError("No fields entered");
+            }
+        } 
     }
     generateTasks(){
         let tasks = [];
@@ -55,6 +80,8 @@ export default class RecordsTemplate {
                 const element = lines[index];
                 tasks.push(new Task(element));
             }
+        } else {
+                throw new SyntaxError("No tasks entered");
         }
         return tasks;
     }

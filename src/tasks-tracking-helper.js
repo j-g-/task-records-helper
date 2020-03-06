@@ -180,8 +180,8 @@ export default class TasksTrackingHelper {
         let name = localStorage.getItem("selectedRecordsTemplate");
         let rt  = name ? this._recordsTemplates.get(name): null;
         if (rt === null) {
-            name = "Default";
-            rt = this._recordsTemplates.get("Default");
+            name = this._recordsTemplates.keys().next().value;
+            rt = this._recordsTemplates.get(name);
             localStorage.setItem('selectedRecordsTemplate', name);
         }
         return rt;
@@ -235,8 +235,11 @@ export default class TasksTrackingHelper {
         if (jsonTemplates != null) {
             jsonTemplates.forEach(
                 templateText => {
+
                     let rt = new RecordsTemplate(templateText);
-                    this._recordsTemplates.set(rt.name, rt);
+                    if (rt){
+                        this._recordsTemplates.set(rt.name, rt);
+                    }
                 }
             );
         }
