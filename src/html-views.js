@@ -279,7 +279,11 @@ export default class HTMLViews {
             this._tasksTrackingHelper.deleteCurrentRecordsGroup();
             this.updateRecordsGroupList();
             this.updateSelectedGroupInfo();
-            this.showCurrentGroup()
+            this.showCurrentGroup();
+            this.loadTemplateView();
+            if(this._displayingSettings) {
+                this.refreshSettingsViews();
+            }
         }
     
     }
@@ -297,7 +301,10 @@ export default class HTMLViews {
             this.updateSelectedGroupInfo();
             this.showCurrentGroup()
             this.loadTemplateView();
-
+            let sc = document.getElementById("settings-container");
+            if(sc.hasChildNodes()) {
+                this.refreshSettingsViews();
+            }
         }
 
     }

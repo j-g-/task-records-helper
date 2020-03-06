@@ -213,7 +213,9 @@ export default class TasksTrackingHelper {
         const rt = new RecordsTemplate(text);
         this._recordsTemplates.set(rt.name,rt);
         this.selectedRecordsTemplate = rt.name;
+        this._selectedRecordsGroup.type = rt.name;
         this.storeTemplates();
+        this.storeSelectedRecordsGroup();
     }
     deleteSelectedRecordsTemplate(){
         let stName = this.selectedRecordsTemplate.name
