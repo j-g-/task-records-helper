@@ -62,10 +62,10 @@ export default class RecordsTemplate {
     }
     generateInputFields(){
         if (this._lines[1] !== undefined) {
-            let reg = /(?<=^Fields:\s*).+/;
+            let reg = /(?:^Fields:\s*)(.+)$/;
             let match = this._lines[1].match(reg);
             if (match) {
-                return match[0].split(',');
+                return match[1].split(',');
 
             } else {
                 throw new SyntaxError("No fields entered");
@@ -78,7 +78,12 @@ export default class RecordsTemplate {
         if (lines[2].match(/Tasks:\n/g) != 0 ){
             for (let index = 3, count = lines.length; index < count; index++) {
                 const element = lines[index];
-                tasks.push(new Task(element));
+                try {
+                    tasks.push(new Task(element));
+                } catch (error) {
+                   //bubble up the error
+                   throw error;
+                }
             }
         } else {
                 throw new SyntaxError("No tasks entered");

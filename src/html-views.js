@@ -1,6 +1,8 @@
 // HTMLView
 // displays and retrieves info to and from the DOM 
 import TaskRecord from './task-record.js';
+import ico16 from  '../favicon-16x16.png'  
+import ico32 from  '../favicon-32x32.png'  
 //import {hash, copyToClipboard, copyInputToClipboard} from './trh.js'
 export default class HTMLViews {
     constructor(tasksTrackingHelper){
@@ -16,6 +18,7 @@ export default class HTMLViews {
             'DOMContentLoaded',
             (() => {
                 this.updateEventHandlers();
+                this.insertIcons();
             }).bind(this)
         );
         
@@ -24,6 +27,10 @@ export default class HTMLViews {
     set logCount (value) {this._logCount = value;}
     get tasksTrackingHelper () {
         return this._tasksTrackingHelper;
+    }
+    insertIcons(){
+        document.head.innerHTML += `<link rel="icon" type="image/png" sizes="32x32" href="${ico32}">`;
+        document.head.innerHTML += `<link rel="icon" type="image/png" sizes="16x16" href="${ico16}">`;
     }
 
     updateEventHandlers(){
