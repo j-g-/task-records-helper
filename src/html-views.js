@@ -1,8 +1,10 @@
 // HTMLView
 // displays and retrieves info to and from the DOM 
 import TaskRecord from './task-record.js';
-import ico16 from  '../favicon-16x16.png'  
-import ico32 from  '../favicon-32x32.png'  
+import ico16 from  '../favicon-16x16.png';
+import ico32 from  '../favicon-32x32.png';
+
+
 //import {hash, copyToClipboard, copyInputToClipboard} from './trh.js'
 export default class HTMLViews {
     constructor(tasksTrackingHelper){
