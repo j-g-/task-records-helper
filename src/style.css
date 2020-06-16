@@ -30,9 +30,15 @@ div#content {
 
 }
 #stats-header{
+    display: grid;
+    grid-template-rows: auto 24px;
     font-size: 1.5em;
     font-weight: bolder;
-
+}
+#generated-links{
+    display: flex;
+    flex-direction: row;
+    place-items: center;
 }
 
 #entry {
