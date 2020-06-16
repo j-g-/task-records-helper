@@ -49,6 +49,30 @@ div#content {
     flex-direction: row;
     place-items: center;
 }
+.generated-link {
+    margin-right: 8px;
+    border: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    background: white;
+    color: rgb(43, 128, 0);
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 16px;
+    height: 24px;
+}
+
+.generated-link:visited {
+    margin-right: 8px;
+    border: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    color: rgb(83, 197, 26);
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 16px;
+    height: 24px;
+}
 
 #entry {
     display: flex;
@@ -444,7 +468,9 @@ label.small-label{
         <div id="stats-header"> 
             <span id="title-text">Task Tracking helper </span>
             <div id="generated-links">
+                <a href="tth.html" class="generated-link">
                 Custom links
+                </a>
             </div>
         </div>
         <div id="entry">
